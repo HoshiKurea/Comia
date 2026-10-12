@@ -286,17 +286,21 @@ export function hitLayer(project: Project, pageId: Id, pagePoint: Point, scopeId
       return null;
     }
     if (layer.type === 'panel') {
+      // Breakout changes clipping, not the default owner of an overlap click.
+      // Inside the frame keep normal panel selection (or an explicitly picked image).
+      if (containsPanelPath(layer, local)) {
+        for (const childId of [...layer.children].reverse()) {
+          const child = project.layers[childId];
+          if (child?.type === 'image' && !child.crop && selected.has(childId)) { const hit = visit(childId, world); if (hit) return hit; }
+        }
+        return id;
+      }
       const breakout = buildPaintOps(project, pageId, new Map(), [id]).filter(op => op.phase === 'breakout');
       for (const op of breakout.reverse()) {
         const image = project.layers[op.layerId];
         if (image?.type === 'image' && op.lineage.every(ancestor => project.layers[ancestor].visible && !project.layers[ancestor].locked) && imageVisibleAt(project, image, pagePoint, op.panelClips)) return image.id;
       }
-      if (!containsPanelPath(layer, local)) return null;
-      for (const childId of [...layer.children].reverse()) {
-        const child = project.layers[childId];
-        if (child?.type === 'image' && !child.crop && selected.has(childId)) { const hit = visit(childId, world); if (hit) return hit; }
-      }
-      return id;
+      return null;
     }
     if (layer.type === 'bubble') {
       for(const child of [...layer.children].reverse())if(project.layers[child]?.type==='bubbleTail'){const hit=visit(child,world);if(hit)return hit;}
