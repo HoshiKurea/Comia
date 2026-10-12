@@ -5,6 +5,7 @@ import type {CommandId} from '../commands/catalog';
 
 export function ToolRail({selected,binding,disabled,onSelect,mode,areaBindings,extraBindings,onAreaTool}:{selected:boolean;binding:string;disabled:boolean;onSelect:()=>void;mode:ToolMode;areaBindings:Record<'tool-marquee'|'tool-lasso',string>;extraBindings:Record<'tool-panel-cut'|'tool-image-crop'|'tool-image-mask'|'tool-bubble-brush',string>;onAreaTool:(id:CommandId)=>void}){
   return <div role="toolbar" aria-label="绘图工具" aria-orientation="vertical" className="tool-rail">
+    <button type="button" aria-label="自由绘画窗口" disabled={disabled} title="自由绘画窗口 · 创作可重画的气泡与素材" onClick={()=>onAreaTool('drawing-window')}><ToolIcon kind="drawing-window"/></button>
     <button type="button" aria-label="选择" aria-pressed={selected} disabled={disabled} title={`移动/点选工具 · ${binding||'未设置快捷键'} · Shift单击多选 · Alt+Shift单击素材多选`} onClick={onSelect}><ToolIcon kind="select"/></button>
     <button type="button" aria-label="矩形框选" aria-pressed={mode==='marquee'} disabled={disabled} title={`矩形框选 · ${areaBindings['tool-marquee']||'未设置快捷键'} · 拖出选区选择完整对象`} onClick={()=>onAreaTool('tool-marquee')}><ToolIcon kind="marquee"/></button>
     <button type="button" aria-label="自由套索" aria-pressed={mode==='lasso'} disabled={disabled} title={`自由套索 · ${areaBindings['tool-lasso']||'未设置快捷键'} · 圈出选区选择完整对象`} onClick={()=>onAreaTool('tool-lasso')}><ToolIcon kind="lasso"/></button>

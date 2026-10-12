@@ -49,6 +49,7 @@ npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
 | [src/render/compileScene.ts](../../src/render/compileScene.ts) | 场景编译与画序 |
 | [src/render/drawScene.ts](../../src/render/drawScene.ts) | 画布、缩略图和成品共享绘制 |
 | [src/assets/AssetLibrary.tsx](../../src/assets/AssetLibrary.tsx) | 素材与文件夹界面 |
+| [src/freehand/DrawingWindow.tsx](../../src/freehand/DrawingWindow.tsx) | 自由绘画窗口、独立预览与局部历史 |
 | [src/library/componentCatalog.ts](../../src/library/componentCatalog.ts) | 图标组件分类 |
 | [src/library/presetModel.ts](../../src/library/presetModel.ts) | 自定义组件与笔刷预设 |
 | [src/commands/catalog.ts](../../src/commands/catalog.ts) | 命令与默认快捷键的唯一目录 |
@@ -82,6 +83,16 @@ npm run build
 | `npm run preview` | 本机检查已有 dist 构建，不重新构建 |
 
 字体未校验通过时，不应绕过构建检查。测试失败时保留真实失败与修复记录，不通过删除断言、跳过测试或降低输出质量“变绿”。
+
+自由绘画的实际Edge流程与DPR1/2性能场景：
+
+```powershell
+npx playwright test -c tests/config/playwright.freehand.config.ts
+npm run build
+npx playwright test -c tests/config/playwright.freehand-offline.config.ts
+```
+
+分别使用独立端口5252与4252，不操作开发者正在使用的5173作品。结果写入被忽略的`output/`；数据模型、轮廓、源摘要、事务、重开、尾巴、融合及预算测试位于`tests/unit/freehand.test.ts`。
 
 ## 浏览器检查
 

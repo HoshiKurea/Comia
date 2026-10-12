@@ -156,7 +156,7 @@ it('migrates format6 direction once without renumbering panels or overwriting ma
     if (layer.type === 'bubble') { delete layer.edgeStyle; delete layer.style.innerStroke; delete layer.style.outerStroke; }
   }
   const before = structuredClone(p);
-  const result = migrateProject(p); if (!result.ok) throw Error('migrate'); expect(result.value.schemaVersion).toBe(9); expect(result.value.settings.readingDirection).toBe('rtl'); expect(result.value.layers).toMatchObject(before.layers); expect(p).toEqual(before);
+  const result = migrateProject(p); if (!result.ok) throw Error('migrate'); expect(result.value.schemaVersion).toBe(10); expect(result.value.settings.readingDirection).toBe('rtl'); expect(result.value.layers).toMatchObject(before.layers); expect(p).toEqual(before);
   result.value.settings.readingDirection = 'ltr'; expect(migrateProject(result.value)).toEqual({ ok: true, value: result.value });
 });
 it('uses the same right-first numbering and first selection for grid, random, proportional cut and drawn line cut', () => {

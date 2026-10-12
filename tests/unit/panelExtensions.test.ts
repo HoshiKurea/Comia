@@ -36,7 +36,7 @@ describe('general frame contract', () => {
   it('migrates a validated legacy project without allowing concavity in v1', () => {
     const p = createProject(); p.schemaVersion = 1; Object.values(p.pages).forEach(page => { page.background = '#FFFFFFFF'; }); const id = p.pageOrder[0]; const panel = createLayer('panel', id) as PanelLayer;
     p.layers[panel.id] = panel; p.pages[id].roots = [panel.id]; const migrated = migrateProject(p);
-    expect(migrated).toMatchObject({ ok: true, value: { schemaVersion: 9 } }); expect(p.schemaVersion).toBe(1);
+    expect(migrated).toMatchObject({ ok: true, value: { schemaVersion: 10 } }); expect(p.schemaVersion).toBe(1);
     panel.geometry = u; panel.geometryMode = 'simple'; expect(migrateProject(p).ok).toBe(false);
     p.schemaVersion = 2; expect(validateProject(p).ok).toBe(true); panel.style.borderRadius = 12; expect(validateProject(p).ok).toBe(false);
   });

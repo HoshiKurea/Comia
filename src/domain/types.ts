@@ -106,7 +106,18 @@ export interface ImageMask {
 }
 
 export type LegacyBubbleShape = 'rect' | 'roundRect' | 'circle' | 'cloud' | 'spiky';
-export type BubbleShape = LegacyBubbleShape | 'handOval' | 'handPolygon' | 'wave';
+export type BubbleShape = LegacyBubbleShape | 'handOval' | 'handPolygon' | 'wave' | 'freehand';
+
+export interface InkSample extends Point { pressure: number; dt: number }
+export interface InkStroke {
+  id: Id; tool: 'pen' | 'eraser'; points: InkSample[]; color: RGBA;
+  width: number; opacity: number; pressureMode: 'fixed' | 'pen';
+}
+export interface BubbleShapeEdit { id: Id; mode: 'add' | 'subtract'; stroke: InkStroke }
+export interface FreehandBubbleSource {
+  version: 1; width: number; height: number; baseRing: Point[]; edits: BubbleShapeEdit[];
+}
+export interface FreehandMaterialSource { version: 1; width: number; height: number; strokes: InkStroke[] }
 
 export interface HandDrawnStyle {
   preset: 'soft' | 'rough' | 'custom';
@@ -175,6 +186,7 @@ export interface BubbleLayer extends LayerBase {
   width: number;
   height: number;
   shape: BubbleShape;
+  freehandSource?: FreehandBubbleSource;
   /** Only decoded formats1..5; format6 rejects this property, even null. */
   tail?: BubbleTail | null;
   handDrawn?: HandDrawnStyle | null;
@@ -288,6 +300,8 @@ export interface Page {
 }
 
 export interface AssetMeta {
+  drawingSource?: FreehandMaterialSource;
+  drawingSourceHash?: string;
   id: Id;
   name: string;
   originalMime: string;
@@ -335,7 +349,7 @@ export interface ComponentPreset { id: Id; name: string; recipe: ScenePresetReci
 export type UserTemplate = LegacyUserTemplate | ComponentPreset;
 
 export interface Project {
-  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
   nextPanelNumber?: number; // Format5/6 compatibility cache: max(live leaf numbers)+1, refreshed by transactions.
   id: Id;
   name: string;

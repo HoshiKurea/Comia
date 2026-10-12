@@ -154,7 +154,7 @@ export function placeImages(assets: DecodedAsset[], pageId: Id, point: Point, ta
   const existing = [...Object.values(project.assets)];
   for (const asset of assets) {
     const layer = createLayer('image', pageId) as ImageLayer;
-    const same = [...existing, ...newAssets.values()].find((meta) => meta.originalHash === asset.meta.originalHash && meta.renderHash === asset.meta.renderHash);
+    const same = [...existing, ...newAssets.values()].find((meta) => meta.originalHash === asset.meta.originalHash && meta.renderHash === asset.meta.renderHash && meta.drawingSourceHash === asset.meta.drawingSourceHash);
     layer.assetId = same?.id ?? asset.meta.id;
     if (!same) newAssets.set(asset.meta.id, asset.meta);
     layer.width = asset.meta.width; layer.height = asset.meta.height;

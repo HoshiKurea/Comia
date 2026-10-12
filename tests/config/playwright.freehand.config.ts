@@ -1,0 +1,3 @@
+import {defineConfig} from '@playwright/test';
+import base from '../../playwright.config';
+export default defineConfig({...base,testDir:'../e2e',testMatch:['freehandWindow.spec.ts'],projects:[{name:'edge-dpr1',use:{deviceScaleFactor:1}},{name:'edge-dpr2',use:{deviceScaleFactor:2}}],workers:1,retries:0,timeout:90000,outputDir:'../../output/playwright/freehand',reporter:[['list'],['json',{outputFile:'../../output/freehand-edge.json'}]],use:{...base.use,baseURL:'http://127.0.0.1:5252',screenshot:'only-on-failure'},webServer:{cwd:'../..',command:'npm run dev -- --host 127.0.0.1 --port 5252 --strictPort',url:'http://127.0.0.1:5252',reuseExistingServer:false,timeout:30000}});

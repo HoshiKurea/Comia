@@ -25,7 +25,7 @@ export function addLibraryAssets(assets: DecodedAsset[], folderId: Id | null = n
   const project = getProject(), pageId = sessionStore.getState().activePageId, metas = { ...project.assets }, ids: Id[] = [];
   if (folderId && !project.assetLibrary?.folders[folderId]) return fail(problem('library/folder', '导入目标文件夹已不存在'));
   for (const asset of assets) {
-    const same = Object.values(metas).find(meta => meta.originalHash === asset.meta.originalHash && meta.renderHash === asset.meta.renderHash);
+    const same = Object.values(metas).find(meta => meta.originalHash === asset.meta.originalHash && meta.renderHash === asset.meta.renderHash && meta.drawingSourceHash === asset.meta.drawingSourceHash);
     const id = same?.id ?? asset.meta.id; metas[id] = same ?? asset.meta; ids.push(id);
   }
   const result = execute({ label: `导入${assets.length}张素材`, context: { pageId, selection: sessionStore.getState().selection }, mutate(draft) {

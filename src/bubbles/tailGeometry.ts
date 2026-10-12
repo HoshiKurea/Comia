@@ -78,7 +78,7 @@ export function buildTailAppearance(project:Pick<Project,'layers'>,tailId:Id,tar
   if(source?.type==='bubbleTail'&&source.legacySplice&&source.attachment.mode==='bubble'){
     const owner=source.parentId?project.layers[source.parentId]:undefined;
     if(owner?.type!=='bubble'||owner.handDrawn||owner.contour||!['triangle','line'].includes(source.appearance))return fail(problem('tail/legacy-body','旧尾需要未改形的原主体'));
-    const geometry=buildBubble(owner.shape,owner.width,owner.height,owner.style,{kind:source.appearance as 'triangle'|'line',attachU:source.attachment.attachU,baseWidth:source.attachment.baseWidth,tip:source.tip});if(!geometry.ok)return geometry;
+    const geometry=buildBubble(owner.shape,owner.width,owner.height,owner.style,{kind:source.appearance as 'triangle'|'line',attachU:source.attachment.attachU,baseWidth:source.attachment.baseWidth,tip:source.tip},owner);if(!geometry.ok)return geometry;
     const anchors=tailAnchors(source,owner);if(!anchors.ok)return anchors;
     const centerline=lineRoute(source,anchors.value.base),totalLength=Math.hypot(source.tip.x-anchors.value.base.x,source.tip.y-anchors.value.base.y),fills:Region[]=[];
     if(source.appearance==='triangle'){

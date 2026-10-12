@@ -1,4 +1,5 @@
-export function ToolIcon({kind}:{kind:'select'|'geometry'|'marquee'|'lasso'|'panel-cut'|'image-crop'|'image-mask'|'bubble-brush'}){
+export function ToolIcon({kind}:{kind:'select'|'geometry'|'marquee'|'lasso'|'panel-cut'|'image-crop'|'image-mask'|'bubble-brush'|'drawing-window'}){
+  if(kind==='drawing-window')return <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><rect x="2" y="3" width="20" height="18" rx="2"/><path d="m8 16 9-9 2 2-9 9-4 1 1-4Z"/></svg>;
   if(kind==='bubble-brush')return <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6"><path d="M4 16C-1 5 7 1 14 4C23 2 26 13 18 16L13 21L12 17Z"/><path d="M8 9H16M8 12H13"/></svg>;
   if(kind==='panel-cut')return <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"><circle cx="6" cy="17" r="3"/><circle cx="6" cy="7" r="3"/><path d="M8 15 20 4M8 9 20 20"/></svg>;
   if(kind==='image-mask')return <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="1.6"><rect x="3" y="5" width="18" height="14"/><circle cx="12" cy="12" r="4"/></svg>;

@@ -112,7 +112,7 @@ export function pasteLayers(data: ClipboardTree, pageId: Id, offset: Point): Res
   const assetMap = new Map<Id, Id>();
   const additions: AssetMeta[] = [];
   for (const asset of data.assets) {
-    const existing = Object.values(project.assets).find((meta) => meta.originalHash === asset.originalHash && meta.renderHash === asset.renderHash);
+    const existing = Object.values(project.assets).find((meta) => meta.originalHash === asset.originalHash && meta.renderHash === asset.renderHash && meta.drawingSourceHash === asset.drawingSourceHash);
     const targetId = existing?.id ?? newId();
     assetMap.set(asset.id, targetId);
     if (!existing) additions.push({ ...structuredClone(asset), id: targetId });

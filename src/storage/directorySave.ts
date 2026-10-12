@@ -1,4 +1,5 @@
 import { migrateProject } from './migrateProject';
+import { verifyDrawingSources } from '../freehand/model';
 import type { Id, Project, Result } from '../domain/types';
 import { fail, ok, problem } from '../domain/types';
 import { newId } from '../domain/id';
@@ -119,6 +120,7 @@ async function readGeneration(handle: FileSystemDirectoryHandle, generation: Id,
   }
   const parsed = parseManifest(raw, generation);
   if (!parsed.ok) return parsed;
+  const drawing = await verifyDrawingSources(parsed.value.project); if (!drawing.ok) return drawing;
   const folder = await directoryOrNull(handle, 'blobs');
   if (!folder && parsed.value.blobs.length) return fail(problem('directory/blobs-missing', '目录缺少素材文件夹'));
   const blobs = new Map<string, Blob>();
@@ -191,6 +193,7 @@ export async function saveDirectory(handle: FileSystemDirectoryHandle, snapshot:
     const prepared = prepareProjectForStorage(snapshot.project);
     if (!prepared.ok) return prepared;
     const project = prepared.value;
+    const drawing = await verifyDrawingSources(project); if (!drawing.ok) return drawing;
     const expectedMimes = assetMimeMap(project);
     if (!expectedMimes.ok) return expectedMimes;
     let pointer: CurrentPointer | null;

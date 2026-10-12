@@ -1,4 +1,5 @@
 import { PageBackgroundInspector } from '../pages/PageBackgroundInspector';
+import { openDrawingWindow } from '../freehand/session';
 import { ImageInspector } from '../images/ImageInspector';
 import { enableFreeImage } from '../images/freeImage';
 import { beginDrawing } from '../panels/drawingController';
@@ -147,6 +148,7 @@ export function InspectorPanel({ layer }: { layer: Layer | undefined }) {
   const dimensions = transformDimensions(layer.id, source);
   return <div className="inspector-content" key={layer.id}>
     <div className="section-title"><span>属性</span><small>{layer.type === 'pageBackground' ? '底层' : layer.type.toUpperCase()}</small></div>
+    {layer.type==='image'&&source.assets[layer.assetId]?.drawingSource&&<button disabled={effectiveLayerFlags(source,layer.id).locked} onClick={()=>notice(openDrawingWindow(layer.id))}>在绘画窗口编辑</button>}
     {layer.type === 'group' && <button onClick={() => sessionStore.setState({ scopeId: layer.id, selection: [] })}>进入组</button>}
 
     <h3>{layer.name}</h3>{layer.type!=='image'&&layer.type!=='pageBackground'&&<button className="preset-save-button" onClick={()=>notice(openPresetDialog())}>保存为组件预设…</button>}

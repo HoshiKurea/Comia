@@ -1,4 +1,4 @@
-import type { BubbleContour, BubbleShape, BubbleStyle, BubbleTail, HandDrawnStyle, BubbleEdgeStyle, Point, Rect, Result, LegacyBubbleShape } from '../domain/types';
+import type { BubbleContour, BubbleShape, BubbleStyle, BubbleTail, HandDrawnStyle, BubbleEdgeStyle, FreehandBubbleSource, Point, Rect, Result, LegacyBubbleShape } from '../domain/types';
 import { fail, ok, problem } from '../domain/types';
 import type { ShapePath } from '../geometry/types';
 import { PANEL_STYLE } from '../domain/limits';
@@ -6,7 +6,7 @@ import { legacyBodyPath } from './body';
 import { mangaBodyPath } from './handDrawn';
 import { safeTextBox } from './safeTextBox';
 
-export interface BubbleBodyOptions { handDrawn?: HandDrawnStyle | null; contour?: BubbleContour | null; edgeStyle?:BubbleEdgeStyle }
+export interface BubbleBodyOptions { handDrawn?: HandDrawnStyle | null; contour?: BubbleContour | null; edgeStyle?:BubbleEdgeStyle; freehandSource?:FreehandBubbleSource }
 
 export interface BubbleGeometry { outline: ShapePath; tailLine: ShapePath | null; textBox: Rect }
 
@@ -54,7 +54,7 @@ function distPointSegment(p: Point, a: Point, b: Point): number {
 export function flattenPath(path: ShapePath): Point[] {
   const out: Point[] = [];
   let current: Point | null = null;
-  const append = (p: Point) => { if (out.length >= 1024) throw new RangeError('气泡轮廓超出几何预算'); out.push(p); };
+  const append = (p: Point) => { if (out.length >= 8192) throw new RangeError('气泡轮廓超出几何预算'); out.push(p); };
   const cubic = (a: Point, b: Point, c: Point, d: Point, depth: number): void => {
     if (depth >= 12 || Math.max(distPointLine(b, a, d), distPointLine(c, a, d)) <= 0.25) { append(d); return; }
     const ab = mid(a, b), bc = mid(b, c), cd = mid(c, d), abc = mid(ab, bc), bcd = mid(bc, cd), m = mid(abc, bcd);
@@ -106,7 +106,7 @@ export function buildBubble(shape: BubbleShape, w: number, h: number, style: Bub
   if (!Number.isFinite(style.radius) || style.radius < PANEL_STYLE.radius.min || style.radius > PANEL_STYLE.radius.max || !Number.isFinite(style.borderWidth) || style.borderWidth < PANEL_STYLE.borderWidth.min || style.borderWidth > PANEL_STYLE.borderWidth.max) return fail(problem('bubble/style', '气泡圆角须在0～4096、边框宽度须在0～256之间'));
   let body: ShapePath;
   try { body = bubbleBodyPath(shape, w, h, style, options); } catch(error) { return fail(problem('bubble/body', (error as Error).message)); }
-  const newStyle = !!options.handDrawn || !!options.contour || !!options.edgeStyle?.wobble || !!(style.innerStroke?.enabled&&style.innerStroke.width) || ['handOval', 'handPolygon', 'wave'].includes(shape);
+  const newStyle = shape==='freehand' || !!options.handDrawn || !!options.contour || !!options.edgeStyle?.wobble || !!(style.innerStroke?.enabled&&style.innerStroke.width) || ['handOval', 'handPolygon', 'wave'].includes(shape);
   const inset=Math.max(style.borderWidth,2*(style.innerStroke?.enabled?style.innerStroke.width:0))*(1+(options.handDrawn?.pressure??0));
   const safe = newStyle ? safeTextBox(body,inset) : ok(safeBox(shape, w, h, Math.min(style.radius, w / 2, h / 2)));
   if (!safe.ok) return safe;

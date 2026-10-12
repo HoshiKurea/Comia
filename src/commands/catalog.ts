@@ -1,7 +1,7 @@
 import type { CommandDescriptor,ShortcutChord } from './types';
 const groups={
  file:[['new-project','新建项目'],['open-project','打开项目'],['open-directory','打开项目目录'],['save','保存项目'],['save-as','另存为'],['save-directory','保存到项目目录'],['close-project','关闭当前项目'],['png','导出 PNG'],['pdf','导出 PDF'],['scale-0.25','导出倍率 0.25×'],['scale-0.5','导出倍率 0.5×'],['scale-1','导出倍率 1×'],['scale-2','导出倍率 2×'],['scale-4','导出倍率 4×'],['preferences','首选项']],
- edit:[['undo','撤销'],['redo','重做'],['copy','复制'],['paste','粘贴'],['duplicate','复制一份'],['delete','删除选中对象']],
+ edit:[['drawing-window','自由绘画窗口'],['undo','撤销'],['redo','重做'],['copy','复制'],['paste','粘贴'],['duplicate','复制一份'],['delete','删除选中对象']],
  layer:[['group','编组'],['ungroup','解组'],['dialogue-connector','建立连接对白'],['dialogue-fused','建立融合对白'],['dialogue-overlap','建立叠加对白'],['dissolve-dialogue','解散连续对白'],['bind-images','关联素材到分镜'],['unbind-images','解除素材分镜关联'],['order-top','置于顶层'],['order-up','上移一层'],['order-down','下移一层'],['order-bottom','置于底层'],['save-component-preset','保存为组件预设']],
  tools:[['tool-select','移动/点选工具'],['tool-geometry','几何编辑工具'],['tool-marquee','矩形框选工具'],['tool-lasso','自由套索工具'],['tool-panel-cut','分镜切割工具'],['tool-image-crop','素材裁剪工具'],['tool-image-mask','素材遮罩工具'],['tool-bubble-brush','气泡笔刷工具']],
  page:[['add-page','新建漫画页'],['rename-page','重命名当前页'],['delete-page','删除当前页'],['page-settings','页面设置']],

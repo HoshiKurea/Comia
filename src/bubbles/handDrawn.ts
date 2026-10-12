@@ -8,8 +8,9 @@ import { flattenForBoolean, LOCAL_TARGET,type GeometryTarget } from '../geometry
 import {deriveBubbleEdge} from './derivedEdge';
 import { legacyBodyPath } from './body';
 import { parseBubbleContour } from '../domain/mangaValidation';
+import { freehandBody } from '../freehand/geometry';
 
-type BodyInput = Pick<BubbleLayer, 'shape' | 'width' | 'height' | 'style' | 'handDrawn' | 'contour'> & {edgeStyle?:BubbleEdgeStyle};
+type BodyInput = Pick<BubbleLayer, 'shape' | 'width' | 'height' | 'style' | 'handDrawn' | 'contour' | 'freehandSource'> & {edgeStyle?:BubbleEdgeStyle};
 export function mulberry32(seed: number): () => number {
   let s = seed >>> 0;
   return () => { s = (s + 0x6d2b79f5) >>> 0; let t = Math.imul(s ^ (s >>> 15), s | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
@@ -71,6 +72,7 @@ export function generateContour(bubble: BodyInput): Result<BubbleContour> {
   return fail(problem('bubble/generation','该尺寸无法生成合法手绘轮廓，原形状保留'));
 }
 export function mangaBaseBodyPath(bubble: BodyInput): Result<ShapePath> {
+  if(bubble.shape==='freehand')return bubble.freehandSource?freehandBody(bubble.freehandSource,bubble.width,bubble.height):fail(problem('drawing/source','自由气泡缺少绘画源'));
   // A manual contour is already the authored input. Build/validate it once;
   // generateContour would validate, clone, and then validate the same curve
   // again. Keep the complete legality/bounds/self-intersection checks.
@@ -79,6 +81,11 @@ export function mangaBaseBodyPath(bubble: BodyInput): Result<ShapePath> {
   const contour=generateContour(bubble);return contour.ok?buildContourPath(contour.value,bubble.width,bubble.height,bubble.shape==='spiky'):contour;
 }
 export function mangaBodyPath(bubble:BodyInput,target:GeometryTarget=LOCAL_TARGET):Result<ShapePath>{
+ if(bubble.shape==='freehand'){
+   if(!bubble.freehandSource)return fail(problem('drawing/source','自由气泡缺少绘画源'));
+   const path=freehandBody(bubble.freehandSource,bubble.width,bubble.height,target);
+   return path.ok&&bubble.edgeStyle?.wobble?deriveBubbleEdge(path.value,bubble.width,bubble.height,bubble.edgeStyle,target):path;
+ }
  const derived=bubble.edgeStyle?.recipe==='normal-offset-v1'&&((bubble.edgeStyle.wobble>0)||!bubble.handDrawn?.wobble);
  const base=mangaBaseBodyPath(derived&&bubble.handDrawn?{...bubble,handDrawn:{...bubble.handDrawn,wobble:0}}:bubble);return base.ok&&derived&&bubble.edgeStyle?deriveBubbleEdge(base.value,bubble.width,bubble.height,bubble.edgeStyle,target):base;
 }

@@ -8,7 +8,8 @@ import { migrationId } from '../domain/id';
 import { completeExtensionProject } from '../domain/extensionDefaults';
 /** Validate the old convex contract before upgrading; never mutates caller data. */
 export function migrateProject(input: unknown): Result<Project> {
-  const checked = validateProject(input); if (!checked.ok || checked.value.schemaVersion === 9) return checked;
+  const checked = validateProject(input); if (!checked.ok || checked.value.schemaVersion === 10) return checked;
+  if (checked.value.schemaVersion === 9) return upgradeTo10(checked.value);
   if (checked.value.schemaVersion === 8) return upgradeTo9(checked.value);
   if (checked.value.schemaVersion === 7) return upgradeTo8(checked.value);
   const project = structuredClone(checked.value); const legacy = project.schemaVersion === 1;
@@ -93,5 +94,9 @@ function upgradeTo9(source: Project): Result<Project> {
     template.recipe = recipeFromLayers(template.recipe.roots, Object.values(local.layers));
   }
   project.nextPanelNumber = Math.max(0, ...Object.values(project.layers).flatMap(l => l.type === 'panel' && l.role === 'leaf' ? [l.editorNumber!] : [])) + 1;
-  project.schemaVersion = 9; return validateProject(project);
+  project.schemaVersion = 9; const checked = validateProject(project); return checked.ok ? upgradeTo10(checked.value) : checked;
+}
+
+function upgradeTo10(source: Project): Result<Project> {
+  const project = structuredClone(source); project.schemaVersion = 10; return validateProject(project);
 }

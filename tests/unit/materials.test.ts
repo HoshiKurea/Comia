@@ -115,7 +115,7 @@ describe('independent materials and non-destructive masks', () => {
   });
   it('migrates valid format1/2 to the new editable library while preserving crop and original input', () => {
     const f = fixture(), p = toLegacy(getProject(), 2);
-    const upgraded = migrateProject(p); expect(upgraded.ok).toBe(true); if (!upgraded.ok) throw Error('migration'); expect(upgraded.value.schemaVersion).toBe(9); expect(upgraded.value.libraryAssetIds).toEqual([f.assetId]); expect(toLegacy(upgraded.value, 2)).toEqual(p); expect(p.schemaVersion).toBe(2); expect(p.libraryAssetIds).toBeUndefined();
+    const upgraded = migrateProject(p); expect(upgraded.ok).toBe(true); if (!upgraded.ok) throw Error('migration'); expect(upgraded.value.schemaVersion).toBe(10); expect(upgraded.value.libraryAssetIds).toEqual([f.assetId]); expect(toLegacy(upgraded.value, 2)).toEqual(p); expect(p.schemaVersion).toBe(2); expect(p.libraryAssetIds).toBeUndefined();
   });
   it('cuts a frame containing a free masked image into separate editable children without changing source mapping', () => {
     const f = fixture(), p = panel(f.pageId); bindImageToPanel(f.imageId, p.id); beginMaskEdit(f.imageId, 'polygon'); commitMaskEdit();

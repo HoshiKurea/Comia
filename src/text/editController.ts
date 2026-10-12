@@ -112,7 +112,7 @@ export function beginBubbleTextEdit(id: Id): Result<void> {
   if (bubble?.type !== 'bubble' || bubble.pageId !== sessionStore.getState().activePageId) return fail(problem('text/bubble-target', '气泡不在当前页面或已不存在'));
   if (!flags.visible || flags.locked) return fail(problem('text/locked', '隐藏或锁定气泡不能编辑文字'));
   const existing = mainBubbleText(doc.project, id); if (existing) return beginTextEdit(existing.id);
-  const geometry = buildBubble(bubble.shape, bubble.width, bubble.height, bubble.style, legacyBubbleTail(doc.project, bubble)); if (!geometry.ok) return geometry;
+  const geometry = buildBubble(bubble.shape, bubble.width, bubble.height, bubble.style, legacyBubbleTail(doc.project, bubble), bubble); if (!geometry.ok) return geometry;
   const text = createLayer('text', bubble.pageId, '对白');
   if (text.type !== 'text') return fail(problem('text/factory', '无法创建对白文字'));
   if (doc.project.schemaVersion >= 6) { text.role = 'plain'; text.effects = null; }

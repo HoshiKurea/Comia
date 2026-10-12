@@ -73,7 +73,7 @@ it('loads and resaves a legacy directory as schema seven while keeping its image
   const originalManifest = [...dir.dirs.get('manifests')!.files.values()][0].slice();
   const loaded = await loadDirectory(asHandle(dir)); expect(loaded.ok && loaded.value.kind).toBe('loaded');
   if (!loaded.ok || loaded.value.kind !== 'loaded') throw Error('legacy directory not loaded');
-  expect(loaded.value.project.schemaVersion).toBe(9); expect(toLegacy(loaded.value.project, 1)).toEqual(snapshot.project);
+  expect(loaded.value.project.schemaVersion).toBe(10); expect(toLegacy(loaded.value.project, 1)).toEqual(snapshot.project);
   for (const [hash, blob] of snapshot.blobs) expect(new Uint8Array(await loaded.value.blobs.get(hash)!.arrayBuffer())).toEqual(new Uint8Array(await blob.arrayBuffer()));
   expect([...dir.dirs.get('manifests')!.files.values()][0]).toEqual(originalManifest); expect(snapshot.project.schemaVersion).toBe(1);
   const second = await saveDirectory(asHandle(dir), { ...snapshot, project: loaded.value.project }, first.value.generation); expect(second.ok).toBe(true);

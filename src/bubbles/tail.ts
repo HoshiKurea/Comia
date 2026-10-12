@@ -4,7 +4,7 @@ import { atArc, bubbleBodyPath, buildBubble, flattenPath, perimeter } from './ge
 
 function lerp(a: number, b: number, t: number): number { return a + (b - a) * t; }
 function valid(bubble: BubbleLayer, tail: BubbleTail): boolean {
-  return buildBubble(bubble.shape, bubble.width, bubble.height, bubble.style, tail).ok;
+  return buildBubble(bubble.shape, bubble.width, bubble.height, bubble.style, tail, bubble).ok;
 }
 
 /** Constrain along the actual pointer path: scan for the first invalid interval, then bisect it. */
@@ -28,7 +28,7 @@ function firstValid<T>(start: T, target: T, interpolate: (t: number) => T, accep
 export function tailBasePoint(bubble: BubbleLayer): Result<Point> {
   if (!bubble.tail) return fail(problem('bubble/no-tail', '气泡尚无尾部'));
   try {
-    const points = flattenPath(bubbleBodyPath(bubble.shape, bubble.width, bubble.height, bubble.style));
+    const points = flattenPath(bubbleBodyPath(bubble.shape, bubble.width, bubble.height, bubble.style,bubble));
     const { positions, total } = perimeter(points);
     return ok(atArc(points, positions, total, bubble.tail.attachU * total));
   } catch { return fail(problem('bubble/budget', '气泡轮廓超出几何预算')); }
@@ -36,7 +36,7 @@ export function tailBasePoint(bubble: BubbleLayer): Result<Point> {
 
 export function defaultTail(bubble: BubbleLayer, kind: BubbleTail['kind']): Result<BubbleTail> {
   let points: Point[];
-  try { points = flattenPath(bubbleBodyPath(bubble.shape, bubble.width, bubble.height, bubble.style)); }
+  try { points = flattenPath(bubbleBodyPath(bubble.shape, bubble.width, bubble.height, bubble.style,bubble)); }
   catch { return fail(problem('bubble/budget', '气泡轮廓超出几何预算')); }
   const { positions, total } = perimeter(points);
   const tip = { x: bubble.width * 0.65, y: bubble.height + 60 };
@@ -73,7 +73,7 @@ export function moveTailBase(bubble: BubbleLayer, point: Point): Result<BubbleTa
   if (!bubble.tail) return fail(problem('bubble/no-tail', '气泡尚无尾部'));
   if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) return fail(problem('bubble/base-finite', '底座坐标必须是有限数'));
   let points: Point[];
-  try { points = flattenPath(bubbleBodyPath(bubble.shape, bubble.width, bubble.height, bubble.style)); }
+  try { points = flattenPath(bubbleBodyPath(bubble.shape, bubble.width, bubble.height, bubble.style,bubble)); }
   catch { return fail(problem('bubble/budget', '气泡轮廓超出几何预算')); }
   const { positions, total } = perimeter(points);
   if (total <= 0) return fail(problem('bubble/body-perimeter', '气泡轮廓周长无效'));

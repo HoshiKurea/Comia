@@ -26,7 +26,7 @@ describe('manga preview transactions',()=>{
     const before=getDocument();expect(beginBubbleShapeEdit(id).ok).toBe(true);expect(applyHandDrawnPreset('soft').ok).toBe(true);
     for(let i=0;i<10;i++){const result=updateHandDrawn({pressure:.1+i*.01});expect(result.ok,result.ok?'':result.problems.map(p=>`${p.code}:${p.message}`).join(';')).toBe(true);}
     expect(getDocument()).toBe(before);expect(runtimeStore.getState().gestureActive).toBe(true);expect(currentMangaEdit()?.revision).toBe(11);
-    expect(commitBubbleShapeEdit().ok).toBe(true);expect(getProject().schemaVersion).toBe(9);expect(getDocument().history.past).toHaveLength(1);
+    expect(commitBubbleShapeEdit().ok).toBe(true);expect(getProject().schemaVersion).toBe(10);expect(getDocument().history.past).toHaveLength(1);
     expect(undo().ok).toBe(true);expect(getProject()).toEqual(before.project);expect(redo().ok).toBe(true);expect((getProject().layers[id] as BubbleLayer).handDrawn?.pressure).toBeCloseTo(.19);
   });
   it('cancel and an unchanged completion leave the legacy document untouched',()=>{

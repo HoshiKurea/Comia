@@ -7,6 +7,7 @@ import { runtimeStore } from '../state/runtimeStore';
 import { pushNotice, sessionStore } from '../state/sessionStore';
 import { registerRecoveryReferences, replaceRuntimeResources, scheduleBlobCollection } from './blobRepository';
 import { migrateProject } from './migrateProject';
+import { verifyDrawingSources } from '../freehand/model';
 
 const DB_NAME = 'comia-recovery-v1';
 const STORE = 'drafts';
@@ -207,6 +208,7 @@ export async function restoreRecovery(key: Id): Promise<Result<void>> {
     const record = await transact('readonly', (store) => store.get(key) as IDBRequest<RecoveryRecord | undefined>);
     if (!record) return fail(problem('recovery/missing', '恢复草稿不存在'));
     const migrated = migrateProject(record.project); if (!migrated.ok) return migrated;
+    const drawing = await verifyDrawingSources(migrated.value); if (!drawing.ok) return drawing;
     record.project = migrated.value;
     const blobs = new Map<string, Blob>();
     for (const item of record.blobs) {

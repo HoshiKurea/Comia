@@ -5,6 +5,7 @@ import { fail, ok, problem } from '../domain/types';
 import { LIMITS, LIMIT_ASSET_TOTAL_BYTES } from '../domain/limits';
 import { validateProject } from '../domain/validate';
 import { detectImageFormat } from '../assets/inspectFormat';
+import { verifyDrawingSources } from '../freehand/model';
 
 interface EmbeddedBlob { hash: string; mime: string; bytes: number; base64: string }
 interface ComiaEnvelope { format: 'Comia'; version: 1; project: Project; blobs: EmbeddedBlob[] }
@@ -77,6 +78,7 @@ export async function encodeProject(project: Project, blobs: Map<string, Blob>, 
   const prepared = prepareProjectForStorage(project);
   if (!prepared.ok) return prepared;
   const snapshot = prepared.value;
+  const drawing = await verifyDrawingSources(snapshot); if (!drawing.ok) return drawing;
   const expectedMimes = assetMimeMap(snapshot);
   if (!expectedMimes.ok) return expectedMimes;
   const embedded: EmbeddedBlob[] = [];
@@ -111,6 +113,7 @@ export async function decodeProject(file: File, signal?: AbortSignal): Promise<R
   if (env.format !== 'Comia' || env.version !== 1 || !Array.isArray(env.blobs)) return fail(problem('storage/version', '不支持的Comia文件格式或版本；当前支持版本1'));
   const checked = migrateProject(env.project);
   if (!checked.ok) return checked;
+  const drawing = await verifyDrawingSources(checked.value); if (!drawing.ok) return drawing;
   const expectedMimes = assetMimeMap(checked.value);
   if (!expectedMimes.ok) return expectedMimes;
   const result = new Map<string, Blob>();

@@ -16,6 +16,7 @@ export const beginBubbleShapeEdit=(id:Id):Result<void>=>beginMangaEdit(id,'shape
 export const commitBubbleShapeEdit=commitMangaEdit;
 export const cancelBubbleShapeEdit=cancelMangaEdit;
 export function editableContour(bubble:BubbleLayer):Result<BubbleContour>{
+  if(bubble.shape==='freehand')return fail(problem('drawing/no-nodes','自由绘画气泡请在绘画窗口补画或擦除修形'));
   const source=bubble.edgeStyle?.recipe==='normal-offset-v1'&&bubble.edgeStyle.wobble>0&&bubble.handDrawn?{...bubble,handDrawn:{...bubble.handDrawn,wobble:0}}:bubble;
   return generateContour({...source,handDrawn:source.handDrawn??(['handOval','handPolygon','wave'].includes(bubble.shape)?handDrawnPreset('soft'):{preset:'custom',seed:42,wobble:0,irregularity:0,pressure:0})});
 }
@@ -73,7 +74,7 @@ export function setEditedBubbleShape(shape:BubbleShape):Result<void>{
   if(!['rect','roundRect','circle','cloud','spiky','handOval','handPolygon','wave'].includes(shape))return fail(problem('bubble/shape','未知气泡形状'));
   return updateShape(b=>{
     if(shape==='circle'&&b.width!==b.height){const w=Math.max(b.width,b.height),dx=(b.width-w)/2,dy=(b.height-w)/2;b.matrix=[b.matrix[0],b.matrix[1],b.matrix[2],b.matrix[3],b.matrix[4]+b.matrix[0]*dx+b.matrix[2]*dy,b.matrix[5]+b.matrix[1]*dx+b.matrix[3]*dy];b.width=b.height=w;}
-    b.shape=shape;b.contour=null;if(['handOval','handPolygon','wave'].includes(shape)&&!b.handDrawn)b.handDrawn=handDrawnPreset('soft');
+    b.shape=shape;b.contour=null;delete b.freehandSource;if(['handOval','handPolygon','wave'].includes(shape)&&!b.handDrawn)b.handDrawn=handDrawnPreset('soft');
   });
 }
 export function currentBubbleShapeEdit(){const active=currentMangaEdit();return active?.kind==='shape'?active:null;}

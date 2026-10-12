@@ -52,6 +52,7 @@ import { mangaLayerCounts, isBoundTail } from './mangaCounts';
 import { MANGA } from './limits';
 import { buildTailAppearance } from '../bubbles/tailGeometry';
 import { prepareDialogue } from '../bubbles/dialogueGeometry';
+import { parseDrawingSource } from '../freehand/model';
 
 const MAX_JSON_DEPTH = 64;
 const RGBA_RE = /^#[0-9a-fA-F]{8}$/;
@@ -357,7 +358,7 @@ function parseLayer(id: string, raw: Record<string, unknown>, pageId: Id, proble
         problems.push(problem('bubble/size', `气泡 ${id} 尺寸非法`, `layers.${id}`));
         return null;
       }
-      const shapes = ['rect', 'roundRect', 'circle', 'cloud', 'spiky', ...(version >= 6 ? ['handOval', 'handPolygon', 'wave'] : [])];
+      const shapes = ['rect', 'roundRect', 'circle', 'cloud', 'spiky', ...(version >= 6 ? ['handOval', 'handPolygon', 'wave'] : []), ...(version >= 10 ? ['freehand'] : [])];
       if (!shapes.includes(raw.shape as string)) {
         problems.push(problem('bubble/shape', `气泡 ${id} shape "${String(raw.shape)}" 非法`, `layers.${id}`));
         return null;
@@ -427,6 +428,10 @@ function parseLayer(id: string, raw: Record<string, unknown>, pageId: Id, proble
       if (version >= 9) {
         const edge = parseBubbleEdge(raw.edgeStyle, `layers.${id}.edgeStyle`); if (!edge.ok) { problems.push(...edge.problems); return null; } layer.edgeStyle = edge.value;
         for (const key of ['innerStroke','outerStroke'] as const) { const band = parseStrokeBand(style[key], `layers.${id}.style.${key}`); if (!band.ok) { problems.push(...band.problems); return null; } layer.style[key] = band.value; }
+      }
+      if (raw.freehandSource !== undefined || layer.shape === 'freehand') {
+        if (version < 10 || layer.shape !== 'freehand' || layer.contour || layer.handDrawn) { problems.push(problem('drawing/version', '自由绘画气泡需要格式10和独立绘画源', `layers.${id}`)); return null; }
+        const source = parseDrawingSource(raw.freehandSource, 'bubble'); if (!source.ok) { problems.push(...source.problems); return null; } layer.freehandSource = source.value;
       }
       const geometry = buildBubble(layer.shape, layer.width, layer.height, layer.style, layer.tail ?? null, layer);
       if (!geometry.ok) { problems.push(...geometry.problems.map((entry) => ({ ...entry, path: `layers.${id}` }))); return null; }
@@ -692,8 +697,8 @@ export function validateProject(input: unknown): Result<Project> {
   }
 
   // 2. 顶层结构
-  if (input.schemaVersion !== 1 && input.schemaVersion !== 2 && input.schemaVersion !== 3 && input.schemaVersion !== 4 && input.schemaVersion !== 5 && input.schemaVersion !== 6 && input.schemaVersion !== 7 && input.schemaVersion !== 8 && input.schemaVersion !== 9) {
-    return fail(problem('project/version', `schemaVersion 必须为 1～9，收到 ${String(input.schemaVersion)}`));
+  if (input.schemaVersion !== 1 && input.schemaVersion !== 2 && input.schemaVersion !== 3 && input.schemaVersion !== 4 && input.schemaVersion !== 5 && input.schemaVersion !== 6 && input.schemaVersion !== 7 && input.schemaVersion !== 8 && input.schemaVersion !== 9 && input.schemaVersion !== 10) {
+    return fail(problem('project/version', `schemaVersion 必须为 1～10，收到 ${String(input.schemaVersion)}`));
   }
   if (input.schemaVersion >= 5 ? !Number.isSafeInteger(input.nextPanelNumber) || (input.nextPanelNumber as number) < 1 : input.nextPanelNumber !== undefined) return fail(problem('project/number-counter', '格式5/6需要有效的分镜计数器，旧格式不应包含新计数器'));
   if (!isUuid(input.id)) {
@@ -753,6 +758,13 @@ export function validateProject(input: unknown): Result<Project> {
       problems.push(problem('asset/too-many-pixels', `资产 ${id} 像素超上限 ${LIMITS.maxAssetPixels}`, `assets.${id}`));
       continue;
     }
+    let drawingSource: AssetMeta['drawingSource'];
+    if (raw.drawingSource !== undefined || raw.drawingSourceHash !== undefined) {
+      if (input.schemaVersion < 10 || !str(raw.drawingSourceHash) || !/^[0-9a-f]{64}$/.test(raw.drawingSourceHash)) { problems.push(problem('drawing/asset-version', '绘画素材需要格式10、绘画源和源摘要')); continue; }
+      const source = parseDrawingSource(raw.drawingSource, 'material'); if (!source.ok) { problems.push(...source.problems); continue; }
+      if (source.value.width !== raw.width || source.value.height !== raw.height || raw.renderMime !== 'image/png') { problems.push(problem('drawing/asset-size', '绘画源须与透明PNG素材尺寸一致')); continue; }
+      drawingSource = source.value;
+    }
     totalAssetBytes += raw.originalBytes as number;
     assets[id] = {
       id,
@@ -767,6 +779,7 @@ export function validateProject(input: unknown): Result<Project> {
       renderBytes: raw.renderBytes as number,
       framePolicy: raw.framePolicy as AssetMeta['framePolicy'],
       normalizedOrientation: true,
+      ...(drawingSource ? { drawingSource, drawingSourceHash: raw.drawingSourceHash as string } : {}),
     };
   }
   if (totalAssetBytes > LIMIT_ASSET_TOTAL_BYTES) {
@@ -779,6 +792,7 @@ export function validateProject(input: unknown): Result<Project> {
   if (input.schemaVersion >= 8 && Object.keys(input.templates).length > PRESET_LIMITS.count) return fail(problem('preset/limit', '自定义预设最多256个'));
   for (const [id, raw] of Object.entries(input.templates)) {
     if(input.schemaVersion<9&&isRecord(raw)&&isRecord(raw.recipe)&&raw.recipe.kind==='bubble-brush'){problems.push(problem('preset/version','气泡笔刷预设需要格式9',`templates.${id}.recipe`));continue;}
+    if(input.schemaVersion<10&&isRecord(raw)&&isRecord(raw.recipe)&&isRecord(raw.recipe.nodes)&&Object.values(raw.recipe.nodes).some(n=>isRecord(n)&&(n.shape==='freehand'||n.freehandSource!==undefined))){problems.push(problem('preset/version','自由绘画组件预设需要格式10',`templates.${id}.recipe`));continue;}
     if (!isSafeId(id) || !isRecord(raw)) {
       problems.push(problem('template/id', `模板 ${id} 非法`, `templates.${id}`));
       continue;

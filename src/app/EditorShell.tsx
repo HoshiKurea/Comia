@@ -1,4 +1,6 @@
 import {isInputComposing} from '../workspacePanels/panelInteraction';
+import { DrawingWindow } from '../freehand/DrawingWindow';
+import { openDrawingWindow } from '../freehand/session';
 import { preferencesStore,updatePreference } from '../preferences/store';
 import { setEditorTool } from '../interaction/editorTools';
 import { currentNodeEdit, nodeKeyboard, nodeKeyUp, commitNodeEdit } from '../interaction/geometryNodeEdit';
@@ -391,6 +393,7 @@ export function EditorShell() {
     {id:'window',label:'窗口',entries:[...PANEL_IDS.map(id=>({kind:'check' as const,id:'panel-'+id,label:PANEL_LABELS[id],checked:()=>!panelLayoutStore.getState().layout.hidden.includes(id),disabledReason:null,run:()=>{if(panelLayoutStore.getState().layout.hidden.includes(id))revealPanel(id);else changePanelLayout(l=>closePanel(l,id));}})),separator('workspace-reset'),action('reset-workspace','恢复默认工作区',()=>changePanelLayout(resetLayout))]},
   ];
 
+  const editMenu=menus.find(m=>m.id==='edit');if(editMenu)editMenu.entries.push(action('drawing-window','自由绘画窗口…',()=>notice(openDrawingWindow()),fileReason));
   const layerMenu=menus.find(m=>m.id==='layer');if(layerMenu)layerMenu.entries.push(action('save-component-preset','保存为组件预设…',()=>notice(openPresetDialog()),fileReason??(!selection.length?'请选择组件':null)));
   commandHandlers.current=collectMenuCommands(menus);
   commandDispatch.current=(id,event)=>{
@@ -432,6 +435,7 @@ export function EditorShell() {
     <NoticeStack />
     {showPreferences&&<PreferencesDialog onClose={()=>setShowPreferences(false)} />}
     <PresetDialog />
+    <DrawingWindow />
 
     {showNewProject && <NewProjectDialog busy={busy || workspaces.transitioning} create={p => void createProjectTab(p)} cancel={() => { if (!busy) setShowNewProject(false); }} />}
     {pendingClose && <FocusDialog title="关闭项目" onCancel={() => { if (!busy) { setPendingClose(null); setDownloadPrepared(false); } }}><div className="dialog-heading"><strong>关闭“{project.name}”</strong></div><p>此漫画有未保存更改。其他项目会保留，请选择保存、放弃更改，或取消关闭。</p><div className="dialog-actions"><button disabled={busy} onClick={() => { setPendingClose(null); setDownloadPrepared(false); }}>取消</button><button disabled={busy} onClick={() => void completeClose(true)}>放弃更改并关闭</button>{downloadPrepared ? <button className="primary" disabled={busy} onClick={() => void completeClose(true)}>确认文件已保存并关闭</button> : <button className="primary" disabled={busy} onClick={() => void saveThenClose()}>先保存再关闭</button>}</div></FocusDialog>}
