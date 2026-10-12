@@ -1,0 +1,20 @@
+.dialog-backdrop{position:fixed;inset:0;z-index:80;display:grid;place-items:center;background:#15201dcc;padding:20px}
+.offline-update{position:fixed;left:255px;bottom:18px;z-index:10;display:flex;gap:12px;align-items:center;padding:10px 14px;border-radius:7px;background:#293b34;color:#fff;font-size:12px;box-shadow:0 4px 14px #0003}.offline-update button{padding:6px 9px;border:1px solid #b5c6bc;border-radius:5px;background:#fff;color:#293b34}
+.text-dialog{width:min(520px,100%);background:#fbfaf6;border-radius:12px;box-shadow:0 30px 80px #0005;overflow:hidden}
+.dialog-heading{display:flex;justify-content:space-between;align-items:center;padding:16px 20px;border-bottom:1px solid #e4e3dc;font-size:16px;color:#26312d}
+.dialog-heading button{background:none;border:0;color:#6c756e;font-size:24px}
+.text-dialog textarea{display:block;width:calc(100% - 40px);height:210px;margin:20px;resize:vertical;border:1px solid #d5d6cc;border-radius:7px;padding:12px;outline-color:#d87351;background:white;color:#27322d;line-height:1.5}
+.dialog-actions{display:flex;align-items:center;justify-content:flex-end;gap:9px;padding:0 20px 20px;font-size:11px;color:#8c958c}
+.dialog-actions span{margin-right:auto}
+.dialog-actions button{border:1px solid #cbd0c8;border-radius:6px;background:white;color:#39443d;padding:8px 14px}
+.dialog-actions button.primary{background:#293b34;color:white;border-color:#293b34}
+.crop-actions{position:absolute;top:14px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:8px;background:#263831ed;color:#f6f7f0;padding:8px 10px;border-radius:7px;box-shadow:0 8px 28px #0003;font-size:11px;white-space:nowrap}
+.crop-actions button{background:white;border:0;border-radius:4px;padding:6px 9px;color:#2c3c34;font-size:11px}
+.crop-actions button:last-child{background:#e67450;color:white}
+.bubble-select{margin:0 16px 10px;width:calc(100% - 32px)}
+.bubble-select select{border:0;background:transparent;color:#39433d;flex:1;text-align:right;outline:0;font-size:12px;padding-right:6px}
+.open-dialog p{margin:20px;color:#4a554e;font-size:13px;line-height:1.6}
+.recovery-row{display:flex;align-items:center;gap:8px;margin:0 20px;padding:10px 0;border-top:1px solid #e5e4de}
+.recovery-row span{flex:1;color:#334139;font-size:13px}
+.recovery-row small{display:block;color:#8a948d;font-size:11px;margin-top:3px}
+.recovery-row button{border:1px solid #cbd0c8;border-radius:5px;background:white;color:#39443d;padding:7px 9px;font-size:11px}

@@ -1,0 +1,13 @@
+.canvas-text-editor{position:absolute;inset:0;pointer-events:none;z-index:4}
+.text-selection-overlay{position:absolute;inset:0;pointer-events:none}
+.canvas-text-input{position:absolute;height:32px;margin:0;padding:0;border:0;resize:none;outline:0;color:transparent;background:transparent;caret-color:transparent;pointer-events:none;overflow:hidden;white-space:pre-wrap}
+.canvas-text-input::selection{color:transparent;background:transparent}
+.canvas-text-input.visible-input{height:110px;padding:8px;border:1px solid #9caaa1;border-radius:5px;color:#20372c;background:#fffef4;caret-color:#20372c;pointer-events:auto;box-shadow:0 4px 14px #0002;overflow:auto}
+.canvas-text-input.visible-input::selection{color:#20372c;background:#b4d6fa}
+.text-edit-actions{position:absolute;bottom:40px;left:12px;right:12px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 12px;background:#253a33f5;color:white;border-radius:7px;font-size:11px;pointer-events:auto;box-shadow:0 5px 18px #0002}
+.text-edit-actions button{border:0;border-radius:4px;padding:6px 9px;background:#fffdf5;color:#273c32;font-size:11px;cursor:pointer}
+.text-edit-actions button:last-child{background:#e8754c;color:white}
+.text-edit-actions [role=status]{color:#ffca92}
+.text-input-caption{position:absolute;top:8px;left:10px;background:#fffdf4;color:#384d43;padding:5px 8px;border-radius:4px;font-size:11px}
+.text-overflow-status{margin:8px 16px;color:#a53f1d;font-size:12px}
+.text-rtl-status{margin:8px 16px;color:#775323;font-size:12px}

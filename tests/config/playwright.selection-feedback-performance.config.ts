@@ -1,0 +1,3 @@
+import {defineConfig} from '@playwright/test';
+const dpr=Number(process.env.COMIA_SELECTION_DPR??1);
+export default defineConfig({testDir:'../performance',testMatch:'selectionFeedback.spec.ts',workers:1,retries:0,timeout:90000,outputDir:`../../output/playwright/selection-feedback-performance-dpr${dpr}`,use:{baseURL:'http://127.0.0.1:5212',browserName:'chromium',channel:'msedge',viewport:{width:1440,height:900},deviceScaleFactor:dpr},webServer: { cwd: '../..',command:'npm run dev -- --host 127.0.0.1 --port 5212 --strictPort',url:'http://127.0.0.1:5212',reuseExistingServer:false,timeout:30000}});

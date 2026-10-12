@@ -1,0 +1,20 @@
+.library-category{padding:7px 12px 9px;color:var(--text);border-bottom:1px solid var(--border)}
+.library-category-heading{margin:0;font-size:12px;font-weight:500}
+.library-category-heading button{display:flex;align-items:center;gap:7px;width:100%;min-height:34px;padding:5px 2px;border:0;background:transparent;color:inherit;text-align:left;font:inherit}
+.library-category-heading svg{width:10px;height:10px;flex:none;fill:none;stroke:currentColor;stroke-width:1.5}
+.library-category-heading button[aria-expanded=true] svg{transform:rotate(90deg)}
+.library-category-heading button:hover{color:var(--focus)}
+.component-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(36px,1fr));gap:4px;padding:4px 0 5px}
+.component-grid .library-tile{position:relative;display:grid;place-items:center;width:100%;min-width:0;height:44px;padding:4px 0;margin:0;border:1px solid transparent;border-radius:3px;box-shadow:none;background:transparent;color:var(--text);touch-action:none;user-select:none}
+.component-grid .library-tile:hover{border-color:var(--border);background:var(--selected)}
+.component-grid .library-tile:active{border-color:var(--focus)}
+.component-grid .library-icon{display:grid;place-items:center;width:34px;height:32px;border-radius:0;background:transparent;color:inherit}
+.component-grid .library-icon>svg{width:32px;height:30px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linejoin:round;stroke-linecap:round}
+/* Reinforce subpixel ink at thumbnail scale without changing source geometry or document styles. */
+.component-grid .library-icon canvas{filter:drop-shadow(0 0 0 #293633) drop-shadow(0 0 0 #293633)}
+.component-label{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.component-tooltip{position:fixed;z-index:90;display:flex;flex-direction:column;gap:8px;min-width:142px;max-width:min(280px,calc(100vw - 16px));padding:10px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);box-shadow:0 3px 12px #0002;font-size:12px;line-height:1.5;overflow-wrap:anywhere;pointer-events:none}
+.component-tooltip-preview{display:grid;place-items:center;height:106px;background:#f9faf7;border:1px solid var(--border);border-radius:2px;color:#293633}
+.component-tooltip-preview>svg{width:96px;height:90px;fill:none;stroke:currentColor;stroke-width:1.4;stroke-linecap:round;stroke-linejoin:round}
+.library-category .template-management{margin-top:7px;padding:10px 0 0;border-top:1px solid var(--border)}
+:root[data-theme=dark] .component-grid .library-item .library-icon{background:#e4e8e2;border-radius:2px}

@@ -1,0 +1,3 @@
+import {defineConfig} from '@playwright/test';
+import base from './playwright.offline.config';
+export default defineConfig({...base,testMatch:['integratedTools.spec.ts','areaSelection.spec.ts','selectionFeedback.spec.ts'],workers:1,retries:0,outputDir:'../../output/playwright/tool-options-offline',reporter:[['list'],['json',{outputFile:'../../output/audit/tool-options-offline.json'}]],use:{...base.use,baseURL:'http://127.0.0.1:4220'},webServer: { cwd: '../..',command:'npm run preview -- --host 127.0.0.1 --port 4220 --strictPort',url:'http://127.0.0.1:4220',reuseExistingServer:false,timeout:30000}});

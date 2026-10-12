@@ -1,0 +1,15 @@
+import {describe,expect,it} from 'vitest';
+import {assistNodeDrag,emptyNodeAssist,type NodeAssistContext} from '../../src/interaction/nodeDragAssist';
+const context=(zoom=1):NodeAssistContext=>({originPage:{x:0,y:0},pointerDownPage:{x:0,y:0},zoom,neighbors:[{vertexIndex:1,page:{x:100,y:0}},{vertexIndex:3,page:{x:0,y:100}}]});
+function move(x:number,y:number,state=emptyNodeAssist(),c=context(),alt=false){const r=assistNodeDrag(c,{x,y},alt,state);if(!r.ok)throw Error(r.problems[0].message);return r.value;}
+describe('node magnetic guides',()=>{
+  it('keeps the actual vertex still inside the dead zone and preserves pointer-down offset',()=>{const c={...context(),originPage:{x:10,y:20},pointerDownPage:{x:15,y:25}};expect(move(15,25,emptyNodeAssist(),c).pagePoint).toEqual({x:10,y:20});expect(move(20,30,emptyNodeAssist(),c,true).pagePoint).toEqual({x:15,y:25});});
+  it('locks horizontal, holds through 12 CSS pixels and releases beyond them',()=>{let r=move(40,4);expect(r.pagePoint).toEqual({x:40,y:0});r=move(40,12,r.state);expect(r.pagePoint.y).toBe(0);r=move(40,13,r.state);expect(r.pagePoint).toEqual({x:40,y:13});expect(r.state.axis).toBeNull();});
+  it('locks vertical without moving the suppressed dimension',()=>{let r=move(4,40);expect(r.pagePoint).toEqual({x:0,y:40});r=move(10,40,r.state);expect(r.pagePoint.x).toBe(0);expect(move(13,40,r.state).pagePoint).toEqual({x:13,y:40});});
+  it('leaves deliberate diagonal movement free',()=>{const r=move(40,40);expect(r.pagePoint).toEqual({x:40,y:40});expect(r.state.axis).toBeNull();});
+  it('snaps to a neighbor coordinate with a wider release threshold',()=>{let r=move(96,40);expect(r.pagePoint.x).toBe(100);r=move(110,40,r.state);expect(r.pagePoint.x).toBe(100);r=move(111,40,r.state);expect(r.pagePoint.x).toBe(111);expect(r.state.snapX).toBeNull();});
+  it('chooses the lower vertex index for equally near coordinates',()=>{const c={...context(.5),neighbors:[{vertexIndex:3,page:{x:40,y:100}},{vertexIndex:1,page:{x:60,y:100}}]};expect(move(50,40,emptyNodeAssist(),c).state.snapX?.vertexIndex).toBe(1);});
+  it('Alt releases every latch and the next ordinary move recalculates from raw position',()=>{const a=move(40,4),b=move(40,4,a.state,context(),true);expect(b.pagePoint).toEqual({x:40,y:4});expect(b.state).toEqual(emptyNodeAssist());expect(move(40,4,b.state).pagePoint.y).toBe(0);});
+  it.each([.25,1,4])('uses screen distances at zoom %s',zoom=>{const r=move(40/zoom,4/zoom,emptyNodeAssist(),context(zoom));expect(r.state.axis).toBe('x');expect(r.pagePoint).toEqual({x:40/zoom,y:0});});
+  it('rejects non-finite coordinates, zero zoom and overflowing finite displacements',()=>{expect(assistNodeDrag(context(0),{x:1,y:1},false,emptyNodeAssist()).ok).toBe(false);expect(assistNodeDrag(context(),{x:NaN,y:1},false,emptyNodeAssist()).ok).toBe(false);const c={...context(),originPage:{x:Number.MAX_VALUE,y:0},pointerDownPage:{x:-Number.MAX_VALUE,y:0}};expect(assistNodeDrag(c,{x:Number.MAX_VALUE,y:0},false,emptyNodeAssist()).ok).toBe(false);});
+});

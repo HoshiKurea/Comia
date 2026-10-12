@@ -1,0 +1,3 @@
+import {defineConfig} from '@playwright/test';
+const dpr=Number(process.env.COMIA_COMPONENT_DPR??1),port=5212;
+export default defineConfig({testDir:'../performance',testMatch:'componentWorkflow.spec.ts',workers:1,retries:0,timeout:90000,outputDir:`../../output/playwright/component-performance-dpr${dpr}-${process.env.COMIA_COMPONENT_PHASE??'current'}`,use:{baseURL:`http://127.0.0.1:${port}`,browserName:'chromium',channel:'msedge',viewport:{width:1440,height:900},deviceScaleFactor:dpr},webServer: { cwd: '../..',command:`npm run dev -- --host 127.0.0.1 --port ${port} --strictPort`,url:`http://127.0.0.1:${port}`,reuseExistingServer:false,timeout:30000}});

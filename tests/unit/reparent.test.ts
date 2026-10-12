@@ -1,0 +1,118 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+import { createLayer } from '../../src/domain/factories';
+import { createContentProject as createProject } from '../helpers/contentProject';
+import { newId } from '../../src/domain/id';
+import { apply, multiply, scaling, translation, worldMatrix } from '../../src/geometry/matrix';
+import { resolveCrop } from '../../src/images/crop';
+import { redo, replaceDocument, undo } from '../../src/history/commandBus';
+import { detachOwned, reparent } from '../../src/layers/reparent';
+import { getProject } from '../../src/state/documentStore';
+
+beforeEach(() => { expect(replaceDocument(createProject()).ok).toBe(true); });
+
+describe('explicit layer parent changes', () => {
+  it('moves a rotated object into and out of a transformed group without changing page-space corners', () => {
+    const project = structuredClone(getProject());
+    const pageId = project.pageOrder[0];
+    const group = createLayer('group', pageId);
+    const panel = createLayer('panel', pageId);
+    group.matrix = [1.1, 0.2, -0.1, 0.9, 120, 35];
+    panel.matrix = [0.8, 0.3, -0.2, 1.4, 250, 80];
+    project.layers[group.id] = group;
+    project.layers[panel.id] = panel;
+    project.pages[pageId].roots.push(group.id, panel.id);
+    expect(replaceDocument(project).ok).toBe(true);
+    const before = apply(worldMatrix(getProject(), panel.id), { x: 43, y: 59 });
+    expect(reparent([panel.id], group.id).ok).toBe(true);
+    expect(getProject().layers[panel.id].parentId).toBe(group.id);
+    const inside = apply(worldMatrix(getProject(), panel.id), { x: 43, y: 59 });
+    expect(inside.x).toBeCloseTo(before.x, 8);
+    expect(inside.y).toBeCloseTo(before.y, 8);
+    expect(reparent([group.id], panel.id).ok).toBe(false);
+    expect(reparent([panel.id], null).ok).toBe(true);
+    const outside = apply(worldMatrix(getProject(), panel.id), { x: 43, y: 59 });
+    expect(outside.x).toBeCloseTo(before.x, 8);
+    expect(outside.y).toBeCloseTo(before.y, 8);
+    expect(undo().ok).toBe(true);
+    expect(getProject().layers[panel.id].parentId).toBe(group.id);
+    expect(redo().ok).toBe(true);
+    expect(getProject().layers[panel.id].parentId).toBeNull();
+  });
+
+  it('bakes a panel-owned image crop into its free world matrix and undo restores clipping', () => {
+    const project = structuredClone(getProject());
+    const pageId = project.pageOrder[0];
+    const panel = createLayer('panel', pageId);
+    const image = createLayer('image', pageId);
+    if (panel.type !== 'panel' || image.type !== 'image') throw new Error('factory type');
+    const assetId = newId();
+    project.assets[assetId] = { id: assetId, name: 'a.png', originalMime: 'image/png', originalHash: 'a'.repeat(64), renderHash: 'b'.repeat(64), renderMime: 'image/png', width: 200, height: 100, originalBytes: 10, renderBytes: 10, framePolicy: 'still', normalizedOrientation: true };
+    image.assetId = assetId;
+    image.width = 200;
+    image.height = 100;
+    image.parentId = panel.id;
+    image.crop = { focus: { u: 0.4, v: 0.6 }, zoom: 1.5 };
+    panel.matrix = [1, 0, 0, 1, 60, 90];
+    panel.children.push(image.id);
+    project.layers[panel.id] = panel;
+    project.layers[image.id] = image;
+    project.pages[pageId].roots.push(panel.id);
+    expect(replaceDocument(project).ok).toBe(true);
+    const mapping = resolveCrop(panel.geometry, { x: 200, y: 100 }, image.crop);
+    const expected = multiply(worldMatrix(getProject(), image.id), multiply(translation(mapping.tx, mapping.ty), scaling(mapping.scale, mapping.scale)));
+    expect(detachOwned(image.id).ok).toBe(true);
+    const detached = getProject().layers[image.id];
+    expect(detached.type).toBe('image');
+    if (detached.type !== 'image') return;
+    expect(detached.parentId).toBeNull();
+    expect(detached.crop).toBeNull();
+    for (let i = 0; i < 6; i++) expect(detached.matrix[i]).toBeCloseTo(expected[i], 8);
+    expect(getProject().pages[pageId].roots).toEqual([panel.id, image.id]);
+    expect(undo().ok).toBe(true);
+    const restored = getProject().layers[image.id];
+    expect(restored.type === 'image' && restored.crop).toEqual(image.crop);
+    expect(getProject().layers[panel.id].type === 'panel' && (getProject().layers[panel.id] as typeof panel).children).toEqual([image.id]);
+  });
+
+  it('retains hidden appearance when a child leaves a hidden group', () => {
+    const project = structuredClone(getProject());
+    const pageId = project.pageOrder[0];
+    const group = createLayer('group', pageId);
+    const text = createLayer('text', pageId);
+    if (group.type !== 'group' || text.type !== 'text') throw new Error('factory type');
+    group.visible = false;
+    group.children.push(text.id);
+    text.parentId = group.id;
+    project.layers[group.id] = group;
+    project.layers[text.id] = text;
+    project.pages[pageId].roots.push(group.id);
+    expect(replaceDocument(project).ok).toBe(true);
+    expect(reparent([text.id], null).ok).toBe(true);
+    expect(getProject().layers[text.id].visible).toBe(false);
+  });
+
+  it('rejects cycles and cross-page moves without changing the document', () => {
+    const project = structuredClone(getProject());
+    const firstPage = project.pageOrder[0];
+    const otherPage = createProject().pages;
+    const secondPage = Object.values(otherPage)[0];
+    project.pages[secondPage.id] = secondPage;
+    project.pageOrder.push(secondPage.id);
+    const outer = createLayer('group', firstPage);
+    const inner = createLayer('group', firstPage);
+    const onOtherPage = createLayer('text', secondPage.id);
+    if (outer.type !== 'group' || inner.type !== 'group') throw new Error('factory type');
+    outer.children.push(inner.id);
+    inner.parentId = outer.id;
+    project.layers[outer.id] = outer;
+    project.layers[inner.id] = inner;
+    project.layers[onOtherPage.id] = onOtherPage;
+    project.pages[firstPage].roots.push(outer.id);
+    project.pages[secondPage.id].roots.push(onOtherPage.id);
+    expect(replaceDocument(project).ok).toBe(true);
+    const before = structuredClone(getProject());
+    expect(reparent([outer.id], inner.id).ok).toBe(false);
+    expect(reparent([outer.id, onOtherPage.id], null).ok).toBe(false);
+    expect(getProject()).toEqual(before);
+  });
+});

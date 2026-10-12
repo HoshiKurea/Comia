@@ -1,0 +1,3 @@
+import {defineConfig} from '@playwright/test';
+import base from './playwright.offline.config';
+export default defineConfig({...base,testMatch:['bubblesCrop.spec.ts','integratedTools.spec.ts','areaSelection.spec.ts','selectionFeedback.spec.ts'],workers:1,retries:0,outputDir:'../../output/playwright/bubbles-crop-offline',reporter:[['list'],['json',{outputFile:'../../output/audit/bubbles-crop-offline.json'}]],use:{...base.use,baseURL:'http://127.0.0.1:4221'},webServer: { cwd: '../..',command:'npm run preview -- --host 127.0.0.1 --port 4221 --strictPort',url:'http://127.0.0.1:4221',reuseExistingServer:false,timeout:30000}});

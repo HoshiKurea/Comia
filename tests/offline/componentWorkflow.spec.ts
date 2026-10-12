@@ -1,0 +1,12 @@
+import {test,expect} from '@playwright/test';
+import {readFile} from 'node:fs/promises';
+import {menuCommand,waitForProjectIO} from '../e2e/menuHelpers';
+
+test('production offline folders and editable presets survive file save/open and remain independent',async({page,context})=>{
+  await page.addInitScript(()=>Object.defineProperty(window,'showSaveFilePicker',{value:undefined}));await page.goto('/');await expect.poll(()=>page.evaluate(async()=>{await navigator.serviceWorker.ready;return!!navigator.serviceWorker.controller;})).toBe(true);await context.setOffline(true);await page.reload();
+  await page.getByRole('button',{name:'柔和手绘气泡',exact:true}).click();await page.getByRole('button',{name:'保存选区为预设…',exact:true}).click();const d=page.getByRole('dialog',{name:'保存组件预设',exact:true});await d.getByLabel('预设名称').fill('离线气泡');await d.getByRole('button',{name:'保存预设',exact:true}).click();
+  await page.getByRole('tab',{name:'素材库',exact:true}).click();await page.getByRole('button',{name:'＋ 文件夹',exact:true}).click();const f=page.getByRole('dialog',{name:'新建素材文件夹',exact:true});await f.getByLabel('文件夹名称').fill('离线背景');await f.getByRole('button',{name:'确定',exact:true}).click();await page.getByLabel('导入素材文件',{exact:true}).setInputFiles('tests/fixtures/formats/red.png');await expect(page.locator('.asset-card')).toHaveCount(1);
+  const pending=page.waitForEvent('download');await(await menuCommand(page,'保存')).click();const file=await pending,path=(await file.path())!,bytes=await readFile(path),data=JSON.parse(bytes.toString());expect(data.project.schemaVersion).toBe(8);expect(Object.values(data.project.assetLibrary.folders).some((v:any)=>v.name==='离线背景')).toBe(true);expect(Object.keys(data.project.templates)).toHaveLength(1);const assetId=data.project.libraryAssetIds[0];expect(data.project.assetLibrary.assetFolder[assetId]).not.toBe(null);expect(data.blobs.length).toBeGreaterThan(0);
+  await page.getByLabel('打开项目文件',{exact:true}).setInputFiles({name:'offline-workflow.Comia.json',mimeType:'application/json',buffer:bytes});await waitForProjectIO(page);await expect(page.getByRole('treeitem',{name:/离线背景/})).toBeVisible();await page.getByRole('tab',{name:'组件库',exact:true}).click();await page.getByRole('button',{name:'自定义 · 离线气泡',exact:true}).click();await expect(page.locator('.layer-row[data-layer-type=bubble]')).toHaveCount(2);
+  const png=page.waitForEvent('download');await(await menuCommand(page,'PNG')).click();expect((await readFile((await(await png).path())!)).byteLength).toBeGreaterThan(1000);
+});

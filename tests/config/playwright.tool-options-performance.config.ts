@@ -1,0 +1,3 @@
+import {defineConfig} from '@playwright/test';
+const dpr=Number(process.env.COMIA_TOOLS_DPR??1);
+export default defineConfig({testDir:'../performance',testMatch:'integratedTools.spec.ts',workers:1,retries:0,timeout:90000,outputDir:`../../output/playwright/tool-options-performance-dpr${dpr}`,reporter:[['list'],['json',{outputFile:`../../output/audit/tool-options-performance-dpr${dpr}.json`}]],use:{baseURL:'http://127.0.0.1:5219',browserName:'chromium',channel:'msedge',viewport:{width:1440,height:900},deviceScaleFactor:dpr},webServer: { cwd: '../..',command:'npm run dev -- --host 127.0.0.1 --port 5219 --strictPort',url:'http://127.0.0.1:5219',reuseExistingServer:false,timeout:30000}});

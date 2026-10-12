@@ -1,0 +1,50 @@
+# Installed dependencies and generated build/test output
+/node_modules/
+/dist/
+/output/
+/test-results/
+/playwright-report/
+/blob-report/
+/coverage/
+
+# Internal planning, historical audit evidence and one-off diagnostic tools stay local
+/docs/implementation/
+/docs/verification-report.md
+/scripts/audit-*.py
+/scripts/freeze-*.py
+/scripts/run-manga-audit-probes.py
+/scripts/verify-*.py
+!/scripts/verify-export-artifacts.py
+/scripts/check-*.mjs
+/scripts/collect-task-audit.mjs
+/scripts/diagnose-*.mjs
+/scripts/profile-pdf.mjs
+/scripts/render-task-audit.mjs
+/scripts/task-audit-decisions.mjs
+/scripts/verify-task-audit.mjs
+/scripts/verify-minimum-node.ps1
+
+# Specialized browser configurations belong in tests/config
+/playwright.*.config.ts
+
+# Python compilation and test output, at any depth
+__pycache__/
+*.py[cod]
+test-results/
+playwright-report/
+
+# Local credentials and machine-specific settings
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+.npmrc
+/.vscode/
+/.idea/
+.DS_Store
+Thumbs.db
+*.tmp
+*.tsbuildinfo

@@ -1,0 +1,5 @@
+.canvas-viewport .crop-actions{max-width:calc(100% - 28px);width:410px;flex-direction:column;align-items:stretch;gap:7px;white-space:normal}
+.crop-heading{display:flex;align-items:center;gap:8px}.crop-heading>span{font-size:10px;flex:1}.crop-heading button{flex-shrink:0}
+.crop-target{display:flex;align-items:center;gap:10px}.crop-target select{flex:1;min-width:0}
+.crop-fields{display:flex;gap:8px}.crop-number{display:flex;flex-direction:column;gap:3px;min-width:0;flex:1}.crop-number input{width:100%;box-sizing:border-box}.crop-number [role=alert]{font-size:10px;color:#ffb3a0}
+.crop-actions input,.crop-actions select{color:#263831;background:#fff;border:1px solid #899b90;border-radius:3px;padding:4px}.crop-actions input[type=range]{padding:0;accent-color:#e67450}.crop-actions small{font-size:10px;color:#d5e1d9}

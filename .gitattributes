@@ -1,0 +1,3 @@
+# Preserve exact source bytes for the existing SHA-based verification ledgers.
+* -text
+*.otf binary

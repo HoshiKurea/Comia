@@ -1,0 +1,2 @@
+import { defineConfig } from '@playwright/test';
+export default defineConfig({ testDir:'../performance',testMatch:'panelBinding.spec.ts',timeout:120_000,workers:1,use:{baseURL:'http://127.0.0.1:5192',browserName:'chromium',channel:'msedge',viewport:{width:1440,height:900}},projects:[{name:'dpr1',use:{deviceScaleFactor:1}},{name:'dpr2',use:{deviceScaleFactor:2}}],webServer: { cwd: '../..',command:'npm run dev -- --host 127.0.0.1 --port 5192 --strictPort',url:'http://127.0.0.1:5192',reuseExistingServer:false,timeout:30_000} });
