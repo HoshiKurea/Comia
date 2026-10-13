@@ -1,9 +1,157 @@
-.layer-filters{display:flex;gap:5px;margin:0 12px 8px;min-width:0}.layer-filters .search{margin:0;min-width:0;flex:1}.layer-filters select{max-width:86px;font-size:11px;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text)}
-.layer-filter-hint{font-size:10px;margin:0 12px 8px;color:var(--muted)}
-.layer-row{height:38px;flex:none;position:relative}.layer-row.context-only .layer-name{color:var(--muted);font-style:italic}.layer-row [data-inherited=true]{opacity:.45}
-.layer-thumbnail{width:28px;height:28px;flex:none;border:1px solid var(--border);border-radius:3px;background:repeating-conic-gradient(#ddd 0% 25%,#fff 0% 50%) 50%/8px 8px}
-.layer-color{width:13px;height:20px;flex:none;border:0;border-radius:3px;appearance:none;color:transparent;cursor:pointer;background:var(--border)}.layer-color option{color:var(--text);background:var(--surface)}.layer-color.red{background:#dd5353}.layer-color.orange{background:#df9038}.layer-color.yellow{background:#d5bd36}.layer-color.green{background:#4f9d67}.layer-color.blue{background:#5689c8}.layer-color.purple{background:#9a67bd}
-.layer-rename{min-width:0;width:100%;flex:1;font-size:11px;border:1px solid var(--focus);background:var(--surface);color:var(--text);padding:4px}
-.layer-row.drop-above{box-shadow:inset 0 2px var(--focus)}.layer-row.drop-below{box-shadow:inset 0 -2px var(--focus)}
-.layer-menu{position:fixed;z-index:50;width:170px;padding:6px;border:1px solid var(--border);border-radius:7px;background:var(--surface);box-shadow:0 6px 24px #0004;display:flex;flex-direction:column}.layer-menu button{border:0;background:transparent;color:var(--text);font-size:12px;text-align:left;padding:7px 10px;border-radius:4px}.layer-menu button:hover,.layer-menu button:focus-visible{background:var(--selected)}
-.inspector-edit{border:0;margin:0;padding:0;min-width:0}.inspector-edit:disabled{opacity:.6}
+/* Comia — layer list. */
+
+.layer-filters {
+  display: flex;
+  gap: 5px;
+  margin: 0 12px 8px;
+  min-width: 0;
+}
+
+.layer-filters .search {
+  margin: 0;
+  min-width: 0;
+  flex: 1;
+}
+
+.layer-filters select {
+  max-width: 86px;
+  font-size: var(--fs-micro);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.layer-filter-hint {
+  margin: 0 12px 8px;
+  font-size: var(--fs-micro);
+  color: var(--muted);
+}
+
+.layer-row {
+  height: 38px;
+  flex: none;
+  position: relative;
+}
+
+/* A layer outside the current scope is shown as context, not as a target. */
+.layer-row.context-only .layer-name {
+  color: var(--muted);
+  font-style: italic;
+}
+
+.layer-row [data-inherited=true] {
+  opacity: .5;
+}
+
+.layer-thumbnail {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background-color: var(--checker-b);
+  background-image: repeating-conic-gradient(var(--checker-a) 0% 25%, var(--checker-b) 0% 50%);
+  background-size: 8px 8px;
+}
+
+.layer-color {
+  width: 13px;
+  height: 20px;
+  flex: none;
+  border: 0;
+  border-radius: var(--radius-xs);
+  appearance: none;
+  color: transparent;
+  cursor: pointer;
+  background: var(--border);
+}
+
+.layer-color option {
+  color: var(--text);
+  background: var(--surface);
+}
+
+.layer-color.red {
+  background: #dd5353;
+}
+
+.layer-color.orange {
+  background: #df9038;
+}
+
+.layer-color.yellow {
+  background: #d5bd36;
+}
+
+.layer-color.green {
+  background: #4f9d67;
+}
+
+.layer-color.blue {
+  background: #5689c8;
+}
+
+.layer-color.purple {
+  background: #9a67bd;
+}
+
+.layer-rename {
+  min-width: 0;
+  width: 100%;
+  flex: 1;
+  padding: 4px;
+  font-size: var(--fs-micro);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.layer-row.drop-above {
+  box-shadow: inset 0 2px var(--accent);
+}
+
+.layer-row.drop-below {
+  box-shadow: inset 0 -2px var(--accent);
+}
+
+.layer-menu {
+  position: fixed;
+  z-index: 50;
+  width: 170px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-2);
+}
+
+.layer-menu button {
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font-size: var(--fs-label);
+  text-align: left;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+}
+
+.layer-menu button:hover,
+.layer-menu button:focus-visible {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.inspector-edit {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.inspector-edit:disabled {
+  opacity: .6;
+}

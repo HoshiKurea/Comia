@@ -1,5 +1,9 @@
+import {geometryPanel,setGeometry,rectangleVertex} from '../appearance/geometry';
+import {propertyAnchor} from '../appearance/commands';
+import {appearanceEditStore,currentAppearanceEdit,cancelAppearanceEdit} from '../appearance/commands';
 import {BubbleBrushSurface} from '../bubbles/BubbleBrushSurface';
 import {bubbleBrushStore,currentBubbleBrush} from '../bubbles/brushController';
+import {recordDrawingFrame} from '../freehand/metrics';
 import {beginAreaSelection,appendAreaPoint,validAreaShape,type AreaSelectionGesture} from '../interaction/areaSelectionGesture';
 import {areaHits,combineAreaSelection,isAreaTool} from '../interaction/regionSelection';
 import {drawAreaSelection} from '../render/areaSelectionOverlay';
@@ -31,8 +35,8 @@ import { selectionPolygon as screenPolygon, selectionOutlines, drawSelectionOutl
 import { getPanelNumberLabels } from '../panels/numberOverlay';
 import type Konva from 'konva';
 import { useStore } from 'zustand';
-import type { Id, Layer as ComicLayer, Point, Project, Viewport } from '../domain/types';
-import { apply, clientToPage, decompose, inverse, pageToScreen, translation, worldMatrix } from '../geometry/matrix';
+import type { Id, Layer as ComicLayer, Point, Project, Rect, Viewport } from '../domain/types';
+import { apply, clientToPage, decompose, inverse, multiply, pageToScreen, rotationRad, scaling, translation, worldMatrix } from '../geometry/matrix';
 import { drawPage, hitLayer, hitVisibleImage, pointInsidePanelClips, type ImageResources } from '../render/drawScene';
 import { assistNodeDrag, emptyNodeAssist, type NodeAssistContext, type NodeAssistState, type NodeGuide } from '../interaction/nodeDragAssist';
 import { currentNodeEdit, geometryNodeStore, pickPanelVertex, selectGeometryNode, constrainNodeGeometry } from '../interaction/geometryNodeEdit';
@@ -64,7 +68,8 @@ import { currentBackgroundEdit, backgroundEditStore } from '../pages/backgroundC
 import { currentPanelStyle, panelStyleStore } from '../panels/style';
 import { cutPreviewStore } from '../panels/cutPanel';
 import { localLayerBounds } from '../interaction/layerBounds';
-import { resizedRect, resizeProject } from '../interaction/resize';
+import { rectHandle, resizedRect, resizeProject } from '../interaction/resize';
+import { selectionRoots, selectionTransformBounds, transformSelectionDraft } from '../interaction/selectionTransform';
 import { rotateAround, snappedRotation, unwrapStep, normalizeDegrees } from '../interaction/rotate';
 import { constrainPanelGeometry, moveVertex } from '../panels/editGeometry';
 import { beginPanelImageEdit } from '../images/editCommands';
@@ -80,13 +85,13 @@ import { prepareDialogue } from '../bubbles/dialogueGeometry';
 import { editorGeometryTarget } from '../bubbles/editorTarget';
 
 type Handle = { kind: 'vertex' | 'edge' | 'resize' | 'rotate' | 'tailTip' | 'tailBase'; index: number; point: Point };
-type Gesture = { id: Id; ids: Id[]; pointerId: number; kind: 'move' | 'crop' | Handle['kind']; index: number; start: Point; project: Project; layer: ComicLayer; center: Point; singleNode?: boolean; assist?: {context:NodeAssistContext;state:NodeAssistState;guides:NodeGuide[]}; snap?: MoveSnap | null; rotation?: { pivotLocal: Point; pivotParent: Point; pointerAngle: number; delta: number; startAngle: number } };
+type Gesture = { id: Id; ids: Id[]; pointerId: number; kind: 'move' | 'crop' | Handle['kind']; index: number; start: Point; project: Project; layer: ComicLayer; center: Point; shared?: Rect; singleNode?: boolean; assist?: {context:NodeAssistContext;state:NodeAssistState;guides:NodeGuide[]}; snap?: MoveSnap | null; rotation?: { pivotLocal: Point; pivotParent: Point; pointerAngle: number; delta: number; startAngle: number } };
 
 function handles(project: Project, id: Id, vp: Viewport, mode: string): Handle[] {
   const layer = project.layers[id];
   const points = screenPolygon(project, id, vp);
   if (!points.length || !layer) return [];
-  if (mode === 'geometry' && layer.type === 'panel') {
+  if (mode === 'geometry' && geometryPanel(layer)) {
     return points.flatMap((p, i) => [
       { kind: 'vertex' as const, index: i, point: p },
       { kind: 'edge' as const, index: i, point: { x: (p.x + points[(i + 1) % points.length].x) / 2, y: (p.y + points[(i + 1) % points.length].y) / 2 } },
@@ -112,16 +117,17 @@ function handles(project: Project, id: Id, vp: Viewport, mode: string): Handle[]
 }
 
 function pointNear(a: Point, b: Point, radius: number): boolean { return Math.hypot(a.x - b.x, a.y - b.y) <= radius; }
+function sharedHandles(project: Project, ids: Id[], vp: Viewport): Handle[] {
+  const box = selectionTransformBounds(project, ids); if (!box || box.width <= 0 || box.height <= 0) return [];
+  const result: Handle[] = Array.from({ length: 8 }, (_, index) => ({ kind: 'resize', index, point: pageToScreen(rectHandle(box, index), vp) }));
+  result.push({ kind: 'rotate', index: 0, point: { x: result[1].point.x, y: result[1].point.y - 24 } }); return result;
+}
 function centerOf(points: Point[]): Point {
   const xs = points.map((p) => p.x), ys = points.map((p) => p.y);
   return { x: (Math.min(...xs) + Math.max(...xs)) / 2, y: (Math.min(...ys) + Math.max(...ys)) / 2 };
 }
 function movableRoots(project: Project, ids: Id[]): Id[] {
-  const selected = new Set(ids);
-  return ids.filter((id) => {
-    for (let parent = project.layers[id]?.parentId; parent; parent = project.layers[parent]?.parentId ?? null) if (selected.has(parent)) return false;
-    return true;
-  });
+  return selectionRoots(project, ids);
 }
 export function fit(page: { width: number; height: number }, size: { width: number; height: number }): Viewport {
   return fitPage(page, { x: size.width, y: size.height });
@@ -143,6 +149,8 @@ export function CanvasView({ onEditText,areaDisabled=false }: { onEditText: (id:
   const spacePan = useStore(sessionStore, (s) => s.spacePan);
   const keyboardMoving = useStore(keyboardMoveStore, (state) => state.active !== null);
   const nodeEditing = useStore(geometryNodeStore, s=>s.active!==null);
+  const appearanceEditing=useStore(appearanceEditStore,s=>s.active!==null),appearanceRuns=useRef<GestureRuns|null>(null);
+  useEffect(()=>{const off=appearanceEditStore.subscribe(()=>gestureLayer.current?.batchDraw());const blur=()=>cancelAppearanceEdit();window.addEventListener('blur',blur);return()=>{off();window.removeEventListener('blur',blur);disposeGestureRuns(appearanceRuns.current);};},[]);
   const styleEditing = useStore(panelStyleStore, (state) => state.active !== null);
   const backgroundEditing = useStore(backgroundEditStore, state => state.active !== null);
   const backgroundRuns = useRef<GestureRuns | null>(null);
@@ -150,7 +158,9 @@ export function CanvasView({ onEditText,areaDisabled=false }: { onEditText: (id:
   const brushEditing = useStore(speedBrushStore, state => state.active !== null);
   const bubbleBrushEditing=useStore(bubbleBrushStore,s=>!!s.active?.valid),bubbleBrushRuns=useRef<GestureRuns|null>(null);
   useEffect(()=>{const off=bubbleBrushStore.subscribe(()=>{if(currentBubbleBrush()?.valid)gestureLayer.current?.batchDraw();});return()=>{off();disposeGestureRuns(bubbleBrushRuns.current);};},[]);
+  useEffect(()=>{if(!appearanceEditing){disposeGestureRuns(appearanceRuns.current);appearanceRuns.current=null;}},[appearanceEditing]);
   const brushRuns = useRef<GestureRuns | null>(null);
+  const renderFailure=useRef<string|null>(null);
   const paperDisplay = useRef<HTMLDivElement>(null);
   const contourEditing = useStore(drawingStore, state => state.active?.kind === 'edit');
   const contourRuns = useRef<GestureRuns | null>(null);
@@ -228,6 +238,7 @@ export function CanvasView({ onEditText,areaDisabled=false }: { onEditText: (id:
     disposeGestureRuns(textRuns.current); textRuns.current = null;
     disposeGestureRuns(keyboardRuns.current); keyboardRuns.current = null;
     disposeGestureRuns(styleRuns.current); styleRuns.current = null;
+    disposeGestureRuns(appearanceRuns.current);appearanceRuns.current=null;
     disposeGestureRuns(backgroundRuns.current); backgroundRuns.current = null;
     disposeGestureRuns(breakoutRuns.current); breakoutRuns.current = null;
     disposeGestureRuns(maskRuns.current); maskRuns.current = null;
@@ -342,8 +353,7 @@ export function CanvasView({ onEditText,areaDisabled=false }: { onEditText: (id:
     raw.save();
     raw.translate(vp.pan.x, vp.pan.y);
     raw.scale(vp.zoom, vp.zoom);
-    drawPage(raw, source, pageId, images);
-    raw.restore();
+    try{drawPage(raw, source, pageId, images);renderFailure.current=null;}catch(error){const message=(error as Error).message;if(renderFailure.current!==message){renderFailure.current=message;queueMicrotask(()=>pushNotice('error',message));}}finally{raw.restore();}
   };
 
   const drawGesture = (ctx: Konva.Context) => {
@@ -366,7 +376,8 @@ export function CanvasView({ onEditText,areaDisabled=false }: { onEditText: (id:
     // Retain pixels only during contour correction. All other preview modes
     // keep the original complete-clear behavior on this same independent layer.
     paintedContour.current = null; ctx._context.clearRect(0, 0, size.width, size.height);
-    const bubbleBrush=currentBubbleBrush();if(bubbleBrush?.valid){const cache=bubbleBrushRuns.current;if(!cache||cache.base!==bubbleBrush.sceneBase||cache.viewport!==vp){disposeGestureRuns(cache);bubbleBrushRuns.current=beginGestureRuns(bubbleBrush.sceneBase,pageId,[bubbleBrush.layerId],vp,size,images);}drawGestureRuns(ctx._context,bubbleBrushRuns.current!,bubbleBrush.preview,images);addGestureDraws(1);return;}
+    const appearance=currentAppearanceEdit();if(appearance?.pageId===pageId){const cache=appearanceRuns.current;if(!cache||cache.base!==appearance.base||cache.viewport!==vp||cache.width!==size.width||cache.height!==size.height){disposeGestureRuns(cache);appearanceRuns.current=beginGestureRuns(appearance.base,pageId,appearance.ids,vp,size,images);}const started=performance.now();drawGestureRuns(ctx._context,appearanceRuns.current!,appearance.preview,images);addGestureDraws(1);recordDrawingFrame(started);return;}
+    const bubbleBrush=currentBubbleBrush();if(bubbleBrush?.valid){const started=performance.now(),cache=bubbleBrushRuns.current;if(!cache||cache.base!==bubbleBrush.sceneBase||cache.viewport!==vp){disposeGestureRuns(cache);bubbleBrushRuns.current=beginGestureRuns(bubbleBrush.sceneBase,pageId,[bubbleBrush.layerId],vp,size,images);}drawGestureRuns(ctx._context,bubbleBrushRuns.current!,bubbleBrush.preview,images);addGestureDraws(1);recordDrawingFrame(started);return;}
     const brush = currentSpeedStroke();
     if (brush?.pageId === pageId) {
       const cache = brushRuns.current;
@@ -488,9 +499,10 @@ export function CanvasView({ onEditText,areaDisabled=false }: { onEditText: (id:
     disposeGestureRuns(runCacheRef.current);
     runCacheRef.current = null;
     previewRef.current = null;
-    if (commit && g && preview && g.kind === 'move' && g.ids.length > 1) {
-      const result = execute({ label: '移动多个图层', context: { pageId, selection: g.ids }, afterSelection: g.ids, mutate(draft) {
-        for (const id of g.ids) draft.layers[id].matrix = preview.layers[id].matrix;
+    if (commit && g && preview && (g.shared || g.kind === 'move' && g.ids.length > 1)) {
+      const result = execute({ label: g.kind === 'rotate' ? '旋转多个图层' : g.kind === 'resize' ? '缩放多个图层' : '移动多个图层', context: { pageId, selection: g.ids }, afterSelection: g.ids, mutate(draft) {
+        for (const [id, layer] of Object.entries(preview.layers)) if (layer !== g.project.layers[id]) draft.layers[id] = layer;
+        draft.schemaVersion = preview.schemaVersion; draft.libraryAssetIds = preview.libraryAssetIds;
       } });
       if (!result.ok) pushNotice('error', result.problems[0].message);
     } else if (commit && g && preview && (!(g.kind === 'tailTip' || g.kind === 'tailBase') || JSON.stringify(preview.layers[g.id]) !== JSON.stringify(g.layer))) {
@@ -691,12 +703,12 @@ export function CanvasView({ onEditText,areaDisabled=false }: { onEditText: (id:
       return;
     }
     const current = selection[0];
-    let handle = current && selection.length === 1 ? handles(project, current, vp, mode).reverse().find((h) => pointNear(h.point, screen, e.pointerType === 'touch' ? 14 : 8)) : undefined;
+    let handle = current ? (selection.length === 1 ? handles(project, current, vp, mode) : sharedHandles(project, selection, vp)).reverse().find((h) => pointNear(h.point, screen, e.pointerType === 'touch' ? 14 : 8)) : undefined;
     const directVertex=(e.ctrlKey||e.metaKey)&&current&&selection.length===1?pickPanelVertex(project,current,screen,vp):null;
     if(directVertex!==null)handle={kind:'vertex',index:directVertex,point:screen};
     if(handle?.kind==='vertex')selectGeometryNode(current,handle.index);
     let materialHit:Id|null=null;
-    if(e.altKey&&!(handle?.kind==='vertex'&&project.layers[current]?.type==='panel')&&(!handle||project.layers[current]?.type==='panel')){const image=hitVisibleImage(project,pageId,p,sessionStore.getState().scopeId),layer=image?project.layers[image]:null;
+    if(e.altKey&&!(handle?.kind==='vertex'&&project.layers[current]?.type==='panel')&&(!handle||selection.length===1&&project.layers[current]?.type==='panel')){const image=hitVisibleImage(project,pageId,p,sessionStore.getState().scopeId),layer=image?project.layers[image]:null;
       if(image&&selection.length===1&&selection[0]===image&&layer?.type==='image'&&!layer.crop&&!e.shiftKey)materialHit=image;
       else{if(image)setSelection(e.shiftKey?(selection.includes(image)?selection.filter(id=>id!==image):[...selection,image]):[image],image);else pushNotice('info','此处没有可选中的素材');return;}}
     if (handle?.kind === 'edge' && sessionStore.getState().geometryConstraint === 'parallelogram') {
@@ -710,27 +722,33 @@ export function CanvasView({ onEditText,areaDisabled=false }: { onEditText: (id:
     if (!selection.includes(hit)) setSelection([hit], hit);
     const layer = project.layers[hit];
     if (!layer || !effectiveLayerFlags(project, hit).visible || effectiveLayerFlags(project, hit).locked) return;
-    if(layer.type==='bubbleTail'&&layer.attachment.mode==='bubble')return;
+    if(layer.type==='bubbleTail'&&layer.attachment.mode==='bubble'&&movingIds.includes(hit))return;
     if (movingIds.some(id => project.layers[id]?.type === 'pageBackground')) { pushNotice('error', '页面背景不能移动，请先单独选择内容图层'); return; }
     for (const id of movingIds) {
       if (effectiveLayerFlags(project, id).locked) { pushNotice('error', '选区包含有效锁定图层，不能整体变换'); return; }
       const locked = hasLockedDescendant(project, id);
       if (locked) { pushNotice('error', `锁定图层“${locked}”阻止整体变换`); return; }
     }
-    if(handle?.kind==='vertex'&&layer.type==='panel'&&!inverse(worldMatrix(project,hit)).ok){pushNotice('error','节点所在坐标系不可逆，不能编辑');return;}
+    if(handle?.kind==='vertex'&&geometryPanel(layer)&&!inverse(worldMatrix(project,hit)).ok){pushNotice('error','节点所在坐标系不可逆，不能编辑');return;}
     e.currentTarget.setPointerCapture(e.pointerId);
     const center = centerOf(screenPolygon(project, hit, vp));
-    const assist=handle?.kind==='vertex'&&layer.type==='panel'&&(directVertex!==null||sessionStore.getState().geometryConstraint!=='parallelogram')?{
-      context:{originPage:apply(worldMatrix(project,hit),layer.geometry[handle.index]),pointerDownPage:p,zoom:vp.zoom,neighbors:[(handle.index+layer.geometry.length-1)%layer.geometry.length,(handle.index+1)%layer.geometry.length].map(index=>({vertexIndex:index,page:apply(worldMatrix(project,hit),layer.geometry[index])}))},state:emptyNodeAssist(),guides:[] as NodeGuide[]
+    const geometryLayer=geometryPanel(layer);
+    const assist=handle?.kind==='vertex'&&geometryLayer&&(directVertex!==null||sessionStore.getState().geometryConstraint!=='parallelogram')?{
+      context:{originPage:apply(worldMatrix(project,hit),geometryLayer.geometry[handle.index]),pointerDownPage:p,zoom:vp.zoom,neighbors:[(handle.index+geometryLayer.geometry.length-1)%geometryLayer.geometry.length,(handle.index+1)%geometryLayer.geometry.length].map(index=>({vertexIndex:index,page:apply(worldMatrix(project,hit),geometryLayer.geometry[index])}))},state:emptyNodeAssist(),guides:[] as NodeGuide[]
     }:undefined;
     gestureRef.current = { id: hit, ids: movingIds, pointerId: e.pointerId, kind: handle?.kind ?? 'move', index: handle?.index ?? 0, start: p, project, layer, center, singleNode:directVertex!==null,assist };
+    if (handle && selection.length > 1) {
+      const check = transformSelectionDraft(project, movingIds, [1, 0, 0, 1, 0, 0]), box = selectionTransformBounds(project, movingIds);
+      if (!check.ok || !box) { if (!check.ok) pushNotice('error', check.problems[0].message); gestureRef.current = null; e.currentTarget.releasePointerCapture(e.pointerId); return; }
+      gestureRef.current.shared = box;
+    }
     if (!handle) gestureRef.current.snap = collectMoveSnap(project, pageId, movingIds);
     if (handle?.kind === 'rotate') {
-      const box = localLayerBounds(project, hit), parentWorld = layer.parentId ? worldMatrix(project, layer.parentId) : [1, 0, 0, 1, 0, 0] as const;
+      const box = gestureRef.current.shared ?? localLayerBounds(project, hit), parentWorld = gestureRef.current.shared ? [1, 0, 0, 1, 0, 0] as const : layer.parentId ? worldMatrix(project, layer.parentId) : [1, 0, 0, 1, 0, 0] as const;
       const inv = inverse(parentWorld);
       if (!box || !inv.ok) { gestureRef.current = null; return; }
-      const pivotLocal = { x: box.x + box.width / 2, y: box.y + box.height / 2 }, pivotParent = apply(layer.matrix, pivotLocal), q = apply(inv.value, p);
-      gestureRef.current.rotation = { pivotLocal, pivotParent, pointerAngle: Math.atan2(q.y - pivotParent.y, q.x - pivotParent.x), delta: 0, startAngle: decompose(layer.matrix).thetaRad };
+      const anchor=gestureRef.current.shared?{x:.5,y:.5}:propertyAnchor(hit),pivotLocal = { x: box.x + box.width * anchor.x, y: box.y + box.height * anchor.y }, pivotParent = gestureRef.current.shared ? pivotLocal : apply(layer.matrix, pivotLocal), q = apply(inv.value, p);
+      gestureRef.current.rotation = { pivotLocal, pivotParent, pointerAngle: Math.atan2(q.y - pivotParent.y, q.x - pivotParent.x), delta: 0, startAngle: gestureRef.current.shared ? 0 : decompose(layer.matrix).thetaRad };
     }
     runtimeStore.setState({ gestureActive: true });
   };
@@ -747,16 +765,28 @@ export function CanvasView({ onEditText,areaDisabled=false }: { onEditText: (id:
       previewCropParams(panCrop(panel.geometry, { x: g.layer.width, y: g.layer.height }, g.layer.crop, { x: end.x - start.x, y: end.y - start.y })); return;
     }
     if (g.kind !== 'crop' && !runCacheRef.current) runCacheRef.current = beginGestureRuns(g.project, pageId, g.ids, vp, size, images);
-    const shallow=['move','vertex','edge'].includes(g.kind);
+    const shallow=!!g.shared||['move','vertex','edge'].includes(g.kind);
     let preview = shallow ? { ...g.project, layers: { ...g.project.layers } } : structuredClone(g.project) as Project;
     if (shallow) for (const id of g.ids) preview.layers[id] = { ...g.project.layers[id] };
     const target = preview.layers[g.id];
-    if (g.kind === 'move') {
+    if (g.shared && (g.kind === 'resize' || g.kind === 'rotate')) {
+      let transform;
+      if (g.kind === 'resize') {
+        const next = resizedRect(g.shared, g.index, p, { proportional: shiftKey, snap16: !altKey && sessionStore.getState().snap16 }); if (!next.ok) return;
+        transform = multiply(multiply(translation(next.value.x, next.value.y), scaling(next.value.width / g.shared.width, next.value.height / g.shared.height)), translation(-g.shared.x, -g.shared.y));
+      } else {
+        const r = g.rotation!; const angle = Math.atan2(p.y - r.pivotParent.y, p.x - r.pivotParent.x); r.delta += unwrapStep(r.pointerAngle, angle); r.pointerAngle = angle;
+        transform = multiply(multiply(translation(r.pivotParent.x, r.pivotParent.y), rotationRad(snappedRotation(0, r.delta, altKey))), translation(-r.pivotParent.x, -r.pivotParent.y));
+      }
+      const result = transformSelectionDraft(g.project, g.ids, transform); if (!result.ok) return; preview = result.value;
+    } else if (g.kind === 'move') {
       if (g.snap) {
         if (altKey) { g.snap.locks = {}; g.snap.guides = []; }
         else { const snapped = snapMove(g.snap.bounds, { x: dx, y: dy }, g.snap.candidates, vp.zoom, g.snap.locks); dx = snapped.delta.x; dy = snapped.delta.y; g.snap.locks = snapped.locks; g.snap.guides = snapped.guides; }
       }
-      for (const id of g.ids) {
+      if (g.ids.length > 1) {
+        const result = transformSelectionDraft(g.project, g.ids, translation(dx, dy)); if (!result.ok) return; preview = result.value;
+      } else for (const id of g.ids) {
         const original = g.project.layers[id];
         const parent = original.parentId ? worldMatrix(g.project, original.parentId) : ([1, 0, 0, 1, 0, 0] as const);
         const inv = inverse(parent);
@@ -772,25 +802,26 @@ export function CanvasView({ onEditText,areaDisabled=false }: { onEditText: (id:
       const candidate = g.kind === 'tailTip' ? moveTailTip(prior, apply(inv.value, p)) : moveTailBase(prior, apply(inv.value, p));
       if (!candidate.ok) return;
       target.tail = candidate.value;
-    } else if (g.kind === 'vertex' && target.type === 'panel' && g.layer.type === 'panel') {
+    } else if (g.kind === 'vertex' && geometryPanel(target) && geometryPanel(g.layer)) {
+      const original=geometryPanel(g.layer)!;
       const inv = inverse(worldMatrix(g.project, g.id));
       if (!inv.ok) return;
       let pageTarget=p;
       if(g.assist){const assisted=assistNodeDrag(g.assist.context,p,altKey,g.assist.state);if(!assisted.ok){pushNotice('error',assisted.problems[0].message);return;}pageTarget=assisted.value.pagePoint;g.assist.state=assisted.value.state;g.assist.guides=assisted.value.guides;}
       const local = apply(inv.value, pageTarget);
-      const candidate = moveVertex(g.layer.geometry, g.index, local, sessionStore.getState().geometryConstraint === 'parallelogram' && !g.singleNode);
-      const previous=previewRef.current?.layers[g.id];target.geometry = constrainNodeGeometry(g.project, g.id, candidate,previous?.type==='panel'?previous.geometry:undefined);
-    } else if (g.kind === 'edge' && target.type === 'panel' && g.layer.type === 'panel') {
+      const candidate = sessionStore.getState().geometryConstraint==='rectangle'&&!g.singleNode?rectangleVertex(original.geometry,g.index,local):moveVertex(original.geometry, g.index, local, sessionStore.getState().geometryConstraint === 'parallelogram' && !g.singleNode);
+      const previous=geometryPanel(previewRef.current?.layers[g.id]);setGeometry(target,constrainNodeGeometry(g.project, g.id, candidate,previous?.geometry));
+    } else if (g.kind === 'edge' && geometryPanel(target) && geometryPanel(g.layer)) {
       const inv = inverse(worldMatrix(g.project, g.id));
       if (!inv.ok) return;
       const q0 = apply(inv.value, g.start), q1 = apply(inv.value, p);
-      const vertices = g.layer.geometry;
+      const vertices = geometryPanel(g.layer)!.geometry;
       const a = vertices[g.index], b = vertices[(g.index + 1) % vertices.length];
       const length = Math.hypot(b.x - a.x, b.y - a.y);
       const nx = (b.y - a.y) / length, ny = (a.x - b.x) / length;
       const amount = (q1.x - q0.x) * nx + (q1.y - q0.y) * ny;
       const candidate = vertices.map((v, i) => i === g.index || i === (g.index + 1) % vertices.length ? { x: v.x + amount * nx, y: v.y + amount * ny } : { ...v });
-      target.geometry = constrainPanelGeometry(g.project, g.id, candidate);
+      setGeometry(target,constrainPanelGeometry(g.project, g.id, candidate));
     } else if (g.kind === 'rotate' && g.rotation) {
       if (Math.hypot(screen.x - g.center.x, screen.y - g.center.y) < 4) return;
       const parent = g.layer.parentId ? worldMatrix(g.project, g.layer.parentId) : [1, 0, 0, 1, 0, 0] as const;
@@ -979,10 +1010,10 @@ export function CanvasView({ onEditText,areaDisabled=false }: { onEditText: (id:
     }}>
     <div ref={paperDisplay} className="page-transparency" aria-hidden="true" style={{ left: vp.pan.x, top: vp.pan.y, width: (page?.width ?? 0) * vp.zoom, height: (page?.height ?? 0) * vp.zoom }} />
     <Stage width={size.width} height={size.height}>
-      <Layer listening={false} visible={!previewActive && !textEditingId && !keyboardMoving && !nodeEditing && !styleEditing && !backgroundEditing && !cropEditing && !contourEditing && !trimEditing && !maskEditing && !breakoutEditing && !mangaEditing && !brushEditing && !bubbleBrushEditing}>
-        <Shape sceneFunc={(ctx) => { if (currentSpeedStroke() || currentMangaEdit() || currentImageTrim() || currentBreakoutEdit() || currentBackgroundEdit() || currentMaskEdit() || currentPanelStyle() || currentCropEdit() || currentDrawing()?.kind === 'edit') return; draw(ctx, project); addMainDraws(1); }} />
+      <Layer listening={false} visible={!appearanceEditing && !previewActive && !textEditingId && !keyboardMoving && !nodeEditing && !styleEditing && !backgroundEditing && !cropEditing && !contourEditing && !trimEditing && !maskEditing && !breakoutEditing && !mangaEditing && !brushEditing && !bubbleBrushEditing}>
+        <Shape sceneFunc={(ctx) => { if (currentAppearanceEdit() || previewActive || previewRef.current || currentBubbleBrush()?.valid || currentSpeedStroke() || currentMangaEdit() || currentImageTrim() || currentBreakoutEdit() || currentBackgroundEdit() || currentMaskEdit() || currentPanelStyle() || currentCropEdit() || currentDrawing()?.kind === 'edit') return; draw(ctx, project); addMainDraws(1); }} />
       </Layer>
-      <Layer ref={gestureLayer} listening={false} clearBeforeDraw={false} visible={previewActive || Boolean(textEditingId) || keyboardMoving || nodeEditing || styleEditing || backgroundEditing || cropEditing || contourEditing || trimEditing || maskEditing || breakoutEditing || mangaEditing || brushEditing || bubbleBrushEditing}>
+      <Layer ref={gestureLayer} listening={false} clearBeforeDraw={false} visible={appearanceEditing || previewActive || Boolean(textEditingId) || keyboardMoving || nodeEditing || styleEditing || backgroundEditing || cropEditing || contourEditing || trimEditing || maskEditing || breakoutEditing || mangaEditing || brushEditing || bubbleBrushEditing}>
         <Shape sceneFunc={drawGesture} />
       </Layer>
       <Layer ref={creationLayer} listening={false}>
@@ -1014,12 +1045,12 @@ export function CanvasView({ onEditText,areaDisabled=false }: { onEditText: (id:
           }
           if(selection.length>1&&mode!=='speed-brush'&&!textEditingId&&!maskEditing&&!breakoutEditing&&!currentMangaEdit()){const source=currentPanelStyle()?.preview??currentNodeEdit()?.preview??currentKeyboardMove()?.preview??previewRef.current??project;const viewport=(panRef.current??wheelRef.current??pinchRef.current)?.viewport??vp;drawSelectionOutlines(ctx._context,selectionOutlines(source,pageId,selection,viewport));}
           if(isAreaTool(mode)||mode==='panel-cut'||(mode==='image-crop'||mode==='image-mask')){if(selection.length===1)drawSelectionOutlines(ctx._context,selectionOutlines(project,pageId,selection,vp));return;}
-          if (!selected || (mode === 'speed-brush'||mode==='bubble-brush') || textEditingId || trimEditing || maskEditing || breakoutEditing || currentMangaEdit() || project.layers[selected]?.type==='bubbleTail') return;
+          if (!selected || (mode === 'speed-brush'||mode==='bubble-brush') || textEditingId || trimEditing || maskEditing || breakoutEditing || currentMangaEdit() || selection.length===1&&project.layers[selected]?.type==='bubbleTail') return;
           if (project.layers[selected]?.type === 'pageBackground') {
             if(selection.length>1)return;
             const raw = ctx._context; raw.save(); raw.strokeStyle = '#e47651'; raw.lineWidth = 1; raw.setLineDash([5, 3]); raw.strokeRect(vp.pan.x, vp.pan.y, page!.width * vp.zoom, page!.height * vp.zoom); raw.restore(); return;
           }
-          const preview = currentPanelStyle()?.preview ?? currentNodeEdit()?.preview ?? currentKeyboardMove()?.preview ?? previewRef.current;
+          const preview = currentAppearanceEdit()?.preview ?? currentPanelStyle()?.preview ?? currentNodeEdit()?.preview ?? currentKeyboardMove()?.preview ?? previewRef.current;
           const overlayVp = (panRef.current ?? wheelRef.current ?? pinchRef.current)?.viewport ?? vp;
           const raw = ctx._context;
           const cut = cutPreviewStore.getState().active;
@@ -1037,13 +1068,14 @@ export function CanvasView({ onEditText,areaDisabled=false }: { onEditText: (id:
           if (!points.length) return;
           raw.save(); raw.strokeStyle = '#f17848'; raw.lineWidth = 1.5; raw.setLineDash([5, 4]);
           if(selection.length===1){raw.beginPath();points.forEach((p,i)=>i?raw.lineTo(p.x,p.y):raw.moveTo(p.x,p.y));raw.closePath();raw.stroke();}raw.setLineDash([]);
-          for (const h of selection.length === 1 ? handles(preview ?? project, selected, overlayVp, mode) : []) {
+          if(selection.length>1){const b=selectionTransformBounds(preview??project,selection);if(b){const q=pageToScreen({x:b.x,y:b.y},overlayVp);raw.strokeRect(q.x,q.y,b.width*overlayVp.zoom,b.height*overlayVp.zoom);}}
+          for (const h of selection.length === 1 ? handles(preview ?? project, selected, overlayVp, mode) : sharedHandles(preview ?? project, selection, overlayVp)) {
             raw.beginPath(); raw.arc(h.point.x, h.point.y, h.kind === 'rotate' ? 6 : 5, 0, 2 * Math.PI);
             raw.fillStyle = h.kind === 'tailBase' ? '#eaf4ff' : '#fffdf9'; raw.fill(); raw.strokeStyle = h.kind === 'tailBase' ? '#3276b8' : '#ec7044'; raw.stroke();
           }
           const nodeTarget=geometryNodeStore.getState().target;
           if(selection.length===1&&nodeTarget?.panelId===selected&&project.layers[selected].type==='panel'){
-            const layer=(preview??project).layers[selected];if(layer.type==='panel'){const point=pageToScreen(apply(worldMatrix(preview??project,selected),layer.geometry[nodeTarget.vertexIndex]),overlayVp);raw.beginPath();raw.arc(point.x,point.y,6,0,2*Math.PI);raw.fillStyle='#ec7044';raw.fill();raw.strokeStyle='#ffffff';raw.stroke();}
+            const layer=geometryPanel((preview??project).layers[selected]);if(layer){const point=pageToScreen(apply(worldMatrix(preview??project,selected),layer.geometry[nodeTarget.vertexIndex]),overlayVp);raw.beginPath();raw.arc(point.x,point.y,6,0,2*Math.PI);raw.fillStyle='#ec7044';raw.fill();raw.strokeStyle='#ffffff';raw.stroke();}
           }
           const gesture = gestureRef.current, source = preview ?? project, layer = source.layers[selected], box = localLayerBounds(source, selected);
           if (gesture && preview && box && gesture.kind !== 'move' && gesture.kind !== 'crop') {

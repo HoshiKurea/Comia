@@ -43,6 +43,31 @@ export interface LayerBase {
   locked: boolean;
   colorLabel: LabelColor;
   matrix: Mat;
+  presentation?: LayerPresentation;
+}
+
+export type BlendMode = 'normal' | 'multiply' | 'screen' | 'overlay' | 'darken' | 'lighten' | 'colorDodge' | 'colorBurn' | 'hardLight' | 'softLight' | 'difference' | 'exclusion' | 'hue' | 'saturation' | 'color' | 'luminosity';
+export interface StrokePresentation {
+  alignment: 'center' | 'inside' | 'outside';
+  dash: 'solid' | 'dash' | 'dot' | 'dashdot';
+  cap: 'butt' | 'round' | 'square';
+  join: 'miter' | 'round' | 'bevel';
+  miterLimit: number;
+  edgeWidths?: number[];
+}
+export interface LayerEffect {
+  id: Id; kind: 'shadow' | 'outline' | 'outerGlow'; enabled: boolean;
+  color: RGBA; opacity: number; width: number; blur: number; offsetX: number; offsetY: number;
+}
+/** Matrix remains authoritative. A factorization hint is used only while its reconstructed linear matrix matches. */
+export interface TransformHint { rotation: number; sx: number; sy: number; skewX: number; skewY: number }
+export interface LayerPresentation {
+  opacity: number; blendMode: BlendMode; fillBlendMode: BlendMode; strokeBlendMode: BlendMode;
+  stroke: StrokePresentation; effects: LayerEffect[]; transformHint?: TransformHint;
+}
+export interface AppearancePreset {
+  id: Id; name: string; presentation: LayerPresentation;
+  paint?: { fill: RGBA; borderColor: RGBA; borderWidth: number; radius: number };
 }
 
 export interface GroupLayer extends LayerBase {
@@ -114,9 +139,13 @@ export interface InkStroke {
   width: number; opacity: number; pressureMode: 'fixed' | 'pen';
 }
 export interface BubbleShapeEdit { id: Id; mode: 'add' | 'subtract'; stroke: InkStroke }
-export interface FreehandBubbleSource {
+export interface FreehandBubbleSourceV1 {
   version: 1; width: number; height: number; baseRing: Point[]; edits: BubbleShapeEdit[];
 }
+export interface FreehandBubbleSourceV2 {
+  version: 2; width: number; height: number; baseRing: Point[]; edits: BubbleShapeEdit[]; ink: InkStroke[];
+}
+export type FreehandBubbleSource = FreehandBubbleSourceV1 | FreehandBubbleSourceV2;
 export interface FreehandMaterialSource { version: 1; width: number; height: number; strokes: InkStroke[] }
 
 export interface HandDrawnStyle {
@@ -243,6 +272,7 @@ export interface SpeedBrushSpec {
 }
 export type DecorationSpec =
   | SpeedBrushSpec
+  | { kind: 'shape'; width: number; height: number; geometry: Point[]; geometryMode: 'convex' | 'simple'; style: PanelStyle }
   | {
       kind: 'speed';
       width: number;
@@ -349,7 +379,7 @@ export interface ComponentPreset { id: Id; name: string; recipe: ScenePresetReci
 export type UserTemplate = LegacyUserTemplate | ComponentPreset;
 
 export interface Project {
-  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10;
+  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
   nextPanelNumber?: number; // Format5/6 compatibility cache: max(live leaf numbers)+1, refreshed by transactions.
   id: Id;
   name: string;
@@ -360,6 +390,7 @@ export interface Project {
   libraryAssetIds?: Id[]; // required in schema3; absent only in legacy documents
   assetLibrary?: AssetLibraryOrganization; // required in format8; UI navigation is not stored here
   templates: Record<Id, UserTemplate>;
+  stylePresets?: Record<Id, AppearancePreset>;
   settings: {
     readingDirection: 'ltr' | 'rtl';
     defaultDpi: number;

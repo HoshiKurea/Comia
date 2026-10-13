@@ -1,31 +1,30 @@
+import {ReferenceTransform,ReferenceAppearance,ReferenceEffects} from '../appearance/ReferenceControls';
+import {ReferenceGeometry} from '../appearance/ReferenceGeometry';
+import {geometryPanel} from '../appearance/geometry';
 import { PageBackgroundInspector } from '../pages/PageBackgroundInspector';
 import { openDrawingWindow } from '../freehand/session';
 import { ImageInspector } from '../images/ImageInspector';
 import { enableFreeImage } from '../images/freeImage';
-import { beginDrawing } from '../panels/drawingController';
 import { separatePanelLayout } from '../panels/independentLayout';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import type { Id, Layer, Result } from '../domain/types';
 import { firstMessage } from '../domain/types';
-import { decompose } from '../geometry/matrix';
 import { documentStore } from '../state/documentStore';
 import { sessionStore, pushNotice, type NoticeContext } from '../state/sessionStore';
-import { changeLayer } from '../app/actions';
+import { changeLayer, deleteSelected } from '../app/actions';
+import { copyToClipboard, pasteFromClipboard } from '../layers/clipboard';
+import { InspectorLayout, InspectorSection, InspectorIcon } from './InspectorLayout';
 import { TextInspector } from '../text/TextInspector';
 import { EffectTextInspector } from '../text/EffectTextInspector';
 import { currentTextEdit, beginSfxTextEdit, commitTextEdit, setTextComposing, textEditStore, updateTextInput } from '../text/editController';
 import { cancelTextEdit } from '../text/editController';
-import { cancelActiveGesture } from '../interaction/activeGesture';
-import { setDimensions, setRotation, transformDimensions } from '../interaction/transformCommands';
-import { isParallelogram } from '../panels/editGeometry';
-import { PanelStyleInspector } from '../panels/PanelStyleInspector';
+import { setDimensions, setRotation } from '../interaction/transformCommands';
 import { CutInspector } from '../panels/CutInspector';
 import { beginCropEdit } from '../images/editCommands';
 import { runtimeStore } from '../state/runtimeStore';
 import { effectiveLayerFlags } from '../state/effectiveFlags';
-import { moveLayer } from '../layers/reorder';
-import { breakoutSplitGuard } from '../images/breakoutCommands';
+import { moveLayers } from '../layers/reorder';
 import { detachOwned, reparent } from '../layers/reparent';
 import { buildBubble } from '../bubbles/geometry';
 import { defaultTail } from '../bubbles/tail';
@@ -76,9 +75,10 @@ function Numeric({ id, field, label, value, disabled = false }: { id: Id; field:
   const cancelled = useRef(false);
   const edited=useRef(false);
   useLayoutEffect(() => setDraft(String(Math.round(value * 100) / 100)), [value, id]);
+  const unit = field === 'rotation' ? '°' : ['x','y','width','height','borderWidth','radius','fontSize','outlineWidth','strokeWidth'].includes(field) ? 'px' : '';
   return <label className="field"><span>{label}</span><input aria-label={`对象${label}`} title={disabled ? '此属性受容器控制，请编辑所属分镜或气泡' : label} type="number" disabled={disabled} value={draft} onChange={(e) => {edited.current=true;setDraft(e.target.value);}}
     onFocus={() => { if(isPanelRelocating())return;cancelled.current = false;if(draft===String(Math.round(value*100)/100))edited.current=false; }} onBlur={() => { if (isPanelRelocating()) return; if (!cancelled.current&&edited.current) editNumber(id, label, field, draft); setDraft(String(Math.round(value * 100) / 100)); }}
-    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') { cancelled.current = true; setDraft(String(value)); e.currentTarget.blur(); } }} /></label>;
+    onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') { cancelled.current = true; setDraft(String(value)); e.currentTarget.blur(); } }} />{unit && <em className="field-unit">{unit}</em>}</label>;
 }
 
 function SfxContentInput({ id, content }: { id: Id; content: string }) {
@@ -129,56 +129,71 @@ function setBubbleTail(id: Id, kind: 'triangle' | 'line' | null): void {
   }));
 }
 
-export function InspectorPanel({ layer }: { layer: Layer | undefined }) {
-  const mangaEditing=useStore(mangaEditStore,state=>state.active!==null);
-  useStore(runtimeStore, (state) => state.fontGeneration);
-  const selection = useStore(sessionStore, (state) => state.selection);
-  const geometryConstraint = useStore(sessionStore, (state) => state.geometryConstraint);
-  const preview = useStore(runtimeStore, (state) => layer ? state.previewProject?.layers[layer.id] : undefined);
-  layer = preview ?? layer;
-  if (!layer) return <div className="empty-inspector"><span className="empty-glyph">◇</span><p>选择画布对象</p><small>在这里调整位置、形状和样式</small></div>;
-  const source = currentTextEdit()?.preview ?? runtimeStore.getState().previewProject ?? documentStore.getState().project;
-  if (selection.length > 1) {
-    const selectedLayers = selection.map((id) => source.layers[id]);
-    if (selectedLayers.every((item) => item?.type === 'panel')) return <div className="inspector-content"><div className="section-title"><span>分镜批量样式</span><small>{selectedLayers.length} 个分镜</small></div><p className="hint">混合值显示 —；输入后整批应用。含锁定对象时整批禁用。</p><PanelStyleInspector panels={selectedLayers} disabled={selectedLayers.some((item) => effectiveLayerFlags(source, item.id).locked)} /></div>;
-    return <div className="inspector-content"><h3>已选择 {selection.length} 个对象</h3><p className="hint">混合类型选区可移动或编组；样式请按对象类型分别选择。</p></div>;
-  }
-  const parent = layer.parentId ? source.layers[layer.parentId] : null;
-  const owned = (parent?.type === 'panel' && !(layer.type === 'image' && !layer.crop)) || parent?.type === 'bubble';
-  const dimensions = transformDimensions(layer.id, source);
-  return <div className="inspector-content" key={layer.id}>
-    <div className="section-title"><span>属性</span><small>{layer.type === 'pageBackground' ? '底层' : layer.type.toUpperCase()}</small></div>
-    {layer.type==='image'&&source.assets[layer.assetId]?.drawingSource&&<button disabled={effectiveLayerFlags(source,layer.id).locked} onClick={()=>notice(openDrawingWindow(layer.id))}>在绘画窗口编辑</button>}
-    {layer.type === 'group' && <button onClick={() => sessionStore.setState({ scopeId: layer.id, selection: [] })}>进入组</button>}
+function DecorationProperties({layer}:{layer:Extract<Layer,{type:'decoration'}>}) {
+  const spec=layer.spec;if(spec.kind==='shape')return null;
+  return <><label className="color-field">颜色<input aria-label="装饰颜色" type="color" value={spec.color.slice(0,7)} onChange={e=>notice(changeLayer(layer.id,'修改装饰颜色',l=>{if(l.type==='decoration'&&l.spec.kind!=='shape')l.spec.color=e.target.value+'FF';}))}/></label>{spec.kind==='sfx'?<><SfxContentInput id={layer.id} content={spec.content}/><Numeric id={layer.id} field="fontSize" label="字号" value={spec.fontSize}/><Numeric id={layer.id} field="outlineWidth" label="描边" value={spec.outlineWidth}/></>:spec.kind==='speed-brush'?<p className="hint">独立速度线笔触；笔刷参数用于下一笔。</p>:<><Numeric id={layer.id} field="count" label="线数" value={spec.count}/><Numeric id={layer.id} field="strokeWidth" label="线宽" value={spec.strokeWidth}/>{spec.kind==='speed'?<Numeric id={layer.id} field="angleDeg" label="角度" value={spec.angleDeg}/>:<Numeric id={layer.id} field="innerRatio" label="留白比例" value={spec.innerRatio}/>}</>}</>;
+}
 
-    <h3>{layer.name}</h3>{layer.type!=='image'&&layer.type!=='pageBackground'&&<button className="preset-save-button" onClick={()=>notice(openPresetDialog())}>保存为组件预设…</button>}
-    {effectiveLayerFlags(source, layer.id).locked && <p className="hint" role="status">“{layer.name}”或其祖先已锁定；请在图层列表解锁后修改属性。</p>}
-    <fieldset className="inspector-edit" disabled={effectiveLayerFlags(source,layer.id).locked}>{layer.type==='bubble'&&<BubbleShapeInspector bubble={layer}/>} {layer.type==='bubbleTail'&&<TailInspector tail={layer}/>} {layer.type==='group'&&layer.dialogue&&<DialogueInspector group={layer}/>}</fieldset>
-    <fieldset className="inspector-edit" title={effectiveLayerFlags(source, layer.id).locked ? `“${layer.name}”或其祖先已锁定，请先解锁` : undefined} disabled={effectiveLayerFlags(source, layer.id).locked||mangaEditing}>
-    {layer.type !== 'pageBackground' && <><p className="hint">位置为父级坐标 · 尺寸为局部尺寸{owned ? ' · 受容器控制' : ''}</p>
-    <div className="field-grid"><Numeric id={layer.id} field="x" label="X" disabled={owned} value={layer.matrix[4]} /><Numeric id={layer.id} field="y" label="Y" disabled={owned} value={layer.matrix[5]} /></div></>}
-    {dimensions && layer.type !== 'pageBackground' && <><div className="field-grid"><Numeric id={layer.id} field="width" label="宽" value={dimensions.width} disabled={owned && layer.type !== 'panel'} /><Numeric id={layer.id} field="height" label="高" value={dimensions.height} disabled={owned && layer.type !== 'panel'} /></div><div className="field-grid"><Numeric id={layer.id} field="rotation" label="旋转" value={decompose(layer.matrix).thetaRad * 180 / Math.PI} disabled={owned} /></div></>}
-    {layer.type === 'panel' && <>
-      {layer.children.map(id => source.layers[id]).filter(item => item?.type === 'image').map(image => <button key={image.id} onClick={() => notice(enableFreeImage(image.id))}>编辑素材 {image.name}</button>)}
-      <PanelStyleInspector panels={[layer]} />{layer.role === 'split' && <><button onClick={() => notice(separatePanelLayout(layer.id))}>拆为独立分镜</button><p className="hint">移除分格父框及其裁剪，保留各格页面位置和图片裁剪。</p></>}
-      <label className="geometry-constraint"><input aria-label="平行四边形约束" type="checkbox" disabled={!isParallelogram(layer.geometry)} checked={geometryConstraint === 'parallelogram'} onChange={(event) => sessionStore.setState({ geometryConstraint: event.target.checked ? 'parallelogram' : 'freeConvex' })} />平行四边形约束{!isParallelogram(layer.geometry) && <small>仅现有平行四边形可启用</small>}</label>
-      <div className="button-stack"><button onClick={() => { notice(openPresetDialog()); }}>存为组件</button><button onClick={() => { cancelActiveGesture(); sessionStore.setState({ toolMode: 'geometry' }); }}>编辑顶点与边</button>{layer.children.some((id) => { const child = source.layers[id]; return child?.type === 'image' && !!child.crop; }) && <button onClick={() => notice(beginCropEdit(layer.id))}>编辑裁剪</button>}</div><div className="button-stack"><button disabled={layer.role !== 'leaf'} onClick={() => notice(beginDrawing('edit', layer.id))}>修正分格轮廓</button><button disabled={layer.role !== 'leaf' || !breakoutSplitGuard(source, layer.id).ok} title={(() => { const r = breakoutSplitGuard(source, layer.id); return r.ok ? undefined : r.problems[0].message; })()} onClick={() => notice(beginDrawing('line', layer.id))}>直线切割工具</button></div><CutInspector id={layer.id} leaf={layer.role === 'leaf'} />
-    </>}
-    {layer.type === 'pageBackground' && <PageBackgroundInspector layer={layer} />}
-    {layer.type === 'image' && <ImageInspector image={layer} />}
-    {layer.type === 'text' && <><TextInspector layer={layer} />{layer.role==='sfx'&&<EffectTextInspector layer={layer}/>}</>}
-    {layer.type === 'bubble' && <><Numeric id={layer.id} field="borderWidth" label="边框" value={layer.style.borderWidth} /><Numeric id={layer.id} field="radius" label="圆角" value={layer.style.radius} /><BubbleStyleInspector bubble={layer} /><label className="field bubble-select"><span>形状</span><select value={layer.shape} onChange={(e) => setBubbleShape(layer.id, e.target.value as BubbleShape)}><option value="rect">方框</option><option value="roundRect">圆角</option><option value="circle">圆形</option><option value="cloud">云朵</option><option value="spiky">尖刺</option></select></label><div className="button-stack"><button onClick={() => setBubbleTail(layer.id, null)}>无尾</button><button onClick={() => setBubbleTail(layer.id, 'triangle')}>三角尾</button><button onClick={() => setBubbleTail(layer.id, 'line')}>线尾</button></div><p className="hint">双击气泡编辑对白</p></>}
-    {layer.type === 'decoration' && <>
-      {layer.spec.kind === 'speed-brush' ? <p className="hint">独立速度线笔触 · 可移动、缩放、旋转和换色。笔刷参数用于下一笔。</p> : layer.spec.kind === 'sfx' ? <><SfxContentInput id={layer.id} content={layer.spec.content} /><div className="field-grid"><Numeric id={layer.id} field="fontSize" label="字号" value={layer.spec.fontSize} /><Numeric id={layer.id} field="outlineWidth" label="描边" value={layer.spec.outlineWidth} /></div></> : <><div className="field-grid"><Numeric id={layer.id} field="count" label="线数" value={layer.spec.count} /><Numeric id={layer.id} field="strokeWidth" label="线宽" value={layer.spec.strokeWidth} /></div>{layer.spec.kind === 'speed' ? <Numeric id={layer.id} field="angleDeg" label="角度" value={layer.spec.angleDeg} /> : <Numeric id={layer.id} field="innerRatio" label="留白比例" value={layer.spec.innerRatio} />}</>}
-      <label className="color-field">颜色 <input type="color" value={layer.spec.color.slice(0, 7)} onChange={(event) => notice(changeLayer(layer.id, '修改装饰颜色', (target) => { if (target.type === 'decoration') target.spec.color = `${event.target.value}FF`; }))} /></label>
-    </>}
-    <div className="button-stack"><button onClick={() => notice(moveLayer(layer.id, 'top'))}>置顶</button><button onClick={() => notice(moveLayer(layer.id, 'up'))}>上移</button><button onClick={() => notice(moveLayer(layer.id, 'down'))}>下移</button><button onClick={() => notice(moveLayer(layer.id, 'bottom'))}>置底</button></div>
-    {(() => { const project = documentStore.getState().project; const parent = layer.parentId ? project.layers[layer.parentId] : null; const groups = Object.values(project.layers).filter((item) => item.type === 'group' && item.pageId === layer.pageId && item.id !== layer.id && item.id !== layer.parentId); return <div className="button-stack">
-      {parent?.type === 'group' && <button onClick={() => notice(reparent([layer.id], null))}>移出组</button>}
-      {(parent?.type === 'panel' || parent?.type === 'bubble') && <button onClick={() => { if (window.confirm('移出后不再受容器裁剪。继续？')) notice(detachOwned(layer.id)); }}>移出容器</button>}
-      {(parent === null || parent.type === 'group') && groups.length > 0 && <label className="reparent-select">移入组 <select aria-label="移入组" value="" onChange={(event) => { if (event.target.value) notice(reparent([layer.id], event.target.value)); }}><option value="">选择目标编组</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select></label>}
-    </div>; })()}
-    </fieldset>
+function QuickActions({ layer, disabled }: { layer: Layer; disabled: boolean }) {
+  const ids = sessionStore.getState().selection, project = documentStore.getState().project;
+  const sortDisabled = ids.some(id => project.layers[id]?.type === 'pageBackground' || project.layers[id]?.parentId !== project.layers[ids[0]]?.parentId);
+  return <div className="inspector-quick-actions">
+    <button disabled={disabled || ids.some(id => project.layers[id]?.type === 'pageBackground')} onClick={() => { const r = copyToClipboard(ids); if (r.ok) notice(pasteFromClipboard(layer.pageId)); else notice(r); }}><InspectorIcon kind="copy"/>复制图层</button>
+    <button disabled={disabled} onClick={() => notice(deleteSelected())}><InspectorIcon kind="delete"/>删除图层</button>
+    {(['up', 'down', 'top', 'bottom'] as const).map((direction, index) => <button key={direction} disabled={disabled || sortDisabled} onClick={() => notice(moveLayers(ids, direction))}><InspectorIcon kind={direction}/>{['上移一层', '下移一层', '置顶', '置底'][index]}</button>)}
   </div>;
 }
 
+export function InspectorPanel({ layer }: { layer: Layer | undefined }) {
+  const mangaEditing = useStore(mangaEditStore, state => state.active !== null);
+  useStore(runtimeStore, state => state.fontGeneration);
+  const selection = useStore(sessionStore, state => state.selection);
+  const preview = useStore(runtimeStore, state => layer ? state.previewProject?.layers[layer.id] : undefined);
+  layer = preview ?? layer;
+  if (!layer) return <div className="empty-inspector"><span className="empty-glyph">◇</span><p>选择画布对象</p><small>在这里调整位置、形状和样式</small></div>;
+  const source = currentTextEdit()?.preview ?? runtimeStore.getState().previewProject ?? documentStore.getState().project;
+  const formal = documentStore.getState().project, thumbnailProject = formal.layers[layer.id] ? formal : source;
+  const locked = selection.some(id => effectiveLayerFlags(source, id).locked);
+  if (selection.length > 1) {
+    return <InspectorLayout key={selection.join('|')} layer={layer} project={thumbnailProject} count={selection.length}>
+      <InspectorSection title="变换" category="transform"><ReferenceTransform layer={layer} ids={selection} disabled={locked}/></InspectorSection>
+      <InspectorSection title="外观" category="appearance"><ReferenceAppearance layer={layer} ids={selection} disabled={locked}/></InspectorSection>
+      <InspectorSection title="效果" category="effects"><ReferenceEffects layer={layer} ids={selection} disabled={locked}/></InspectorSection>
+      <InspectorSection title="选区操作" category="adjustments"><p className="hint">复制、删除和编组作用于整个选区；混合类型的样式请按对象类型分别选择。</p></InspectorSection>
+      <InspectorSection title="快速操作" category="quick"><QuickActions layer={layer} disabled={locked || mangaEditing}/></InspectorSection>
+    </InspectorLayout>;
+  }
+  const parent = layer.parentId ? source.layers[layer.parentId] : null;
+  const restricted = effectiveLayerFlags(source, layer.id).locked;
+  return <InspectorLayout key={layer.id} layer={layer} project={thumbnailProject}>
+    {restricted && <p className="hint" role="status">“{layer.name}”或其祖先已锁定；请在图层列表解锁后修改属性。</p>}
+    {layer.type !== 'pageBackground' && <InspectorSection title="变换" category="transform"><ReferenceTransform layer={layer} ids={selection} disabled={restricted||mangaEditing}/></InspectorSection>}
+    <InspectorSection title="外观" category="appearance"><ReferenceAppearance layer={layer} ids={selection} disabled={restricted||mangaEditing} extra={layer.type==='bubble'?<details className="ref-extras"><summary>气泡内外描边</summary><BubbleStyleInspector bubble={layer} bandsOnly/></details>:layer.type==='decoration'?<DecorationProperties layer={layer}/>:undefined}/></InspectorSection>
+    <InspectorSection title={geometryPanel(layer) ? '几何与路径' : layer.type === 'bubble' ? '轮廓与对白' : '内容与调整'} category="adjustments"><fieldset className="inspector-edit" disabled={restricted}>
+      {geometryPanel(layer)&&<ReferenceGeometry layer={layer} disabled={restricted}/>}
+      {layer.type === 'panel' && <details className="ref-extras"><summary>分镜与切割选项</summary>
+        {layer.children.map(id => source.layers[id]).filter(item => item?.type === 'image').map(image => <button key={image.id} onClick={() => notice(enableFreeImage(image.id))}>编辑素材 {image.name}</button>)}
+        {layer.role === 'split' && <><button onClick={() => notice(separatePanelLayout(layer!.id))}>拆为独立分镜</button><p className="hint">移除分格父框及其裁剪，保留各格页面位置和图片裁剪。</p></>}
+        <div className="button-stack"><button onClick={() => notice(openPresetDialog())}>存为组件</button>{layer.children.some(id => { const c = source.layers[id]; return c?.type === 'image' && !!c.crop; }) && <button onClick={() => notice(beginCropEdit(layer!.id))}>编辑裁剪</button>}</div>
+        <CutInspector id={layer.id} leaf={layer.role === 'leaf'}/>
+      </details>}
+      {layer.type === 'bubble' && <><BubbleShapeInspector bubble={layer}/><fieldset className="inspector-edit" disabled={mangaEditing}>
+        <label className="field bubble-select"><span>形状</span><select value={layer.shape} onChange={e => setBubbleShape(layer!.id, e.target.value as BubbleShape)}><option value="rect">方框</option><option value="roundRect">圆角</option><option value="circle">圆形</option><option value="cloud">云朵</option><option value="spiky">尖刺</option>{layer.shape === 'freehand' && <option value="freehand">手绘轮廓</option>}</select></label>
+        <div className="button-stack"><button onClick={() => setBubbleTail(layer!.id, null)}>无尾</button><button onClick={() => setBubbleTail(layer!.id, 'triangle')}>三角尾</button><button onClick={() => setBubbleTail(layer!.id, 'line')}>线尾</button></div><p className="hint">双击气泡编辑对白</p>
+      </fieldset></>}
+      {layer.type === 'bubbleTail' && <TailInspector tail={layer}/>}
+      {layer.type === 'group' && <><button onClick={() => sessionStore.setState({ scopeId: layer!.id, selection: [] })}>进入组</button>{layer.dialogue && <DialogueInspector group={layer}/>}</>}
+      {layer.type === 'image' && <>{source.assets[layer.assetId]?.drawingSource && <button onClick={() => notice(openDrawingWindow(layer!.id))}>在绘画窗口编辑</button>}<ImageInspector image={layer}/></>}
+      {layer.type === 'pageBackground' && <PageBackgroundInspector layer={layer}/>}
+      {layer.type === 'text' && <TextInspector layer={layer}/>}
+    </fieldset></InspectorSection>
+    <InspectorSection title="效果" category="effects"><ReferenceEffects layer={layer} ids={selection} disabled={restricted||mangaEditing}/>{layer.type==='text'&&layer.role==='sfx'&&<EffectTextInspector layer={layer}/>}</InspectorSection>
+    <InspectorSection title="快速操作" category="quick"><fieldset className="inspector-edit" disabled={restricted || mangaEditing}>
+      <QuickActions layer={layer} disabled={restricted || mangaEditing}/>
+      {layer.type !== 'image' && layer.type !== 'pageBackground' && <button className="preset-save-button" onClick={() => notice(openPresetDialog())}>保存为组件预设…</button>}
+      <div className="button-stack">{parent?.type === 'group' && <button onClick={() => notice(reparent([layer!.id], null))}>移出组</button>}{(parent?.type === 'panel' || parent?.type === 'bubble') && <button onClick={() => { if (window.confirm('移出后不再受容器裁剪。继续？')) notice(detachOwned(layer!.id)); }}>移出容器</button>}
+        {(parent === null || parent.type === 'group') && Object.values(source.layers).some(g => g.type === 'group' && g.pageId === layer!.pageId && g.id !== layer!.id && g.id !== layer!.parentId) && <label className="reparent-select">移入组<select aria-label="移入组" value="" onChange={e => { if (e.target.value) notice(reparent([layer!.id], e.target.value)); }}><option value="">选择目标编组</option>{Object.values(source.layers).filter(g => g.type === 'group' && g.pageId === layer!.pageId && g.id !== layer!.id && g.id !== layer!.parentId).map(g => <option key={g.id} value={g.id}>{g.name}</option>)}</select></label>}
+      </div>
+    </fieldset></InspectorSection>
+  </InspectorLayout>;
+}

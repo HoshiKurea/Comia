@@ -15,8 +15,8 @@ export function parseInkStroke(v: unknown): Result<InkStroke> {
 export function parseDrawingSource(v: unknown, kind: 'bubble'): Result<FreehandBubbleSource>;
 export function parseDrawingSource(v: unknown, kind: 'material'): Result<FreehandMaterialSource>;
 export function parseDrawingSource(v: unknown, kind: 'bubble' | 'material'): Result<FreehandBubbleSource | FreehandMaterialSource> {
-  if (!record(v) || v.version !== 1 || !range(v.width, 16, DRAWING_LIMITS.axis) || !range(v.height, 16, DRAWING_LIMITS.axis)) return bad('绘画源版本或尺寸非法（16～4096）');
-  const source: FreehandBubbleSource | FreehandMaterialSource = kind === 'bubble' ? { version: 1, width: v.width, height: v.height, baseRing: [], edits: [] } : { version: 1, width: v.width, height: v.height, strokes: [] };
+  if (!record(v) || (v.version !== 1 && !(kind === 'bubble' && v.version === 2)) || !range(v.width, 16, DRAWING_LIMITS.axis) || !range(v.height, 16, DRAWING_LIMITS.axis)) return bad('绘画源版本或尺寸非法（16～4096）');
+  const source: FreehandBubbleSource | FreehandMaterialSource = kind === 'bubble' ? (v.version === 2 ? { version: 2, width: v.width, height: v.height, baseRing: [], edits: [], ink: [] } : { version: 1, width: v.width, height: v.height, baseRing: [], edits: [] }) : { version: 1, width: v.width, height: v.height, strokes: [] };
   let total = 0;
   if ('baseRing' in source) {
     if (!Array.isArray(v.baseRing) || v.baseRing.length < 3 || v.baseRing.length > DRAWING_LIMITS.strokePoints || !v.baseRing.every(point) || !Array.isArray(v.edits) || v.edits.length > DRAWING_LIMITS.operations) return bad('气泡需要有效轮廓和修形笔迹');
@@ -27,6 +27,10 @@ export function parseDrawingSource(v: unknown, kind: 'bubble' | 'material'): Res
       source.edits.push({ id: edit.id, mode: edit.mode as 'add' | 'subtract', stroke: stroke.value }); total += stroke.value.points.length;
     }
     if (new Set(source.edits.map(e => e.id)).size !== source.edits.length) return bad('修形记录编号重复');
+    if (source.version === 2) {
+      if (!Array.isArray(v.ink) || source.edits.length + v.ink.length > DRAWING_LIMITS.operations) return bad('气泡细节／修形超过256笔或细节源非法');
+      for (const raw of v.ink) { const ink = parseInkStroke(raw); if (!ink.ok) return ink; source.ink.push(ink.value); total += ink.value.points.length; }
+    } else if (v.ink !== undefined) return bad('气泡细节需要作者源版本2');
   } else {
     if (!Number.isInteger(v.width) || !Number.isInteger(v.height) || !Array.isArray(v.strokes) || !v.strokes.length || v.strokes.length > DRAWING_LIMITS.operations) return bad('素材需要整数画板尺寸和1～256笔');
     for (const raw of v.strokes) {
@@ -35,7 +39,7 @@ export function parseDrawingSource(v: unknown, kind: 'bubble' | 'material'): Res
       source.strokes.push(stroke.value); total += stroke.value.points.length;
     }
   }
-  const strokes = 'strokes' in source ? source.strokes : source.edits.map(e => e.stroke);
+  const strokes = 'strokes' in source ? source.strokes : [...source.edits.map(e => e.stroke), ...(source.version === 2 ? source.ink : [])];
   if (total > DRAWING_LIMITS.points || new Set(strokes.map(s => s.id)).size !== strokes.length) return bad('绘画源点数超限或笔迹编号重复');
   return ok(source);
 }

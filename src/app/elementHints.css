@@ -1,3 +1,83 @@
-.element-shortcut-reference{padding:12px;font-size:11px;min-width:0;color:var(--text)}.element-hint-heading{display:flex;gap:12px;align-items:center;margin-bottom:9px}.element-hint-heading strong{font-size:13px;word-break:break-all}.element-hint-heading small{display:block;color:var(--muted);margin-top:4px}.element-hint-row{display:flex;gap:9px;justify-content:space-between;padding:4px 0;border-bottom:1px solid var(--border)}.element-hint-row small{display:block;font-size:10px;color:var(--muted)}.element-hint-row kbd{font-family:inherit;font-size:11px;white-space:nowrap;align-self:center;color:var(--accent,#c66341)}.element-hint-section{margin-top:10px;padding:6px 0;font-weight:600;color:var(--accent,#c66341)}.element-shortcut-reference p{font-size:10px;color:var(--muted);margin:8px 0 0}.element-hint-heading canvas{background:repeating-conic-gradient(#ecefed 0% 25%,#fafbfa 0% 50%) 50%/12px 12px}
+/* Comia — element shortcut reference panel. */
 
-.element-hint-heading canvas{max-width:100px;max-height:75px;object-fit:contain}.element-hint-row kbd{white-space:normal;text-align:right;flex:0 0 48%;overflow-wrap:anywhere}
+.element-shortcut-reference {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 12px;
+  min-width: 0;
+  color: var(--text);
+  font-size: var(--fs-micro);
+}
+
+.element-hint-heading {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.element-hint-heading strong {
+  font-size: var(--fs-body);
+  font-weight: var(--fw-semi);
+  word-break: break-all;
+}
+
+.element-hint-heading small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+}
+
+.element-hint-heading canvas {
+  max-width: 100px;
+  max-height: 75px;
+  flex: none;
+  object-fit: contain;
+  background-color: var(--checker-b);
+  background-image: repeating-conic-gradient(var(--checker-a) 0% 25%, var(--checker-b) 0% 50%);
+  background-size: 12px 12px;
+  border: 1px solid var(--border);
+}
+
+.element-hint-row {
+  display: flex;
+  gap: 9px;
+  justify-content: space-between;
+  align-items: center;
+  padding: 5px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.element-hint-row small {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--fs-micro);
+  color: var(--muted);
+}
+
+.element-hint-row kbd {
+  flex: 0 0 48%;
+  font-family: var(--font-ui);
+  font-size: var(--fs-micro);
+  color: var(--accent);
+  text-align: right;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+/* Sub-heading for the image contained inside the selected panel. */
+.element-hint-section {
+  margin-top: 10px;
+  padding: 6px 0;
+  font-weight: var(--fw-semi);
+  color: var(--accent);
+}
+
+.element-shortcut-reference p {
+  margin: 10px 0 0;
+  font-size: var(--fs-micro);
+  line-height: var(--lh-body);
+  color: var(--muted);
+}

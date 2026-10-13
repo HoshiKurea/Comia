@@ -34,7 +34,7 @@ describe('素材目录数据与事务',()=>{
   });
   it('upgrades old v7 folders to an empty organization without mutating input',()=>{
     const p=createProject();p.schemaVersion=7;delete p.assetLibrary;const before=structuredClone(p),r=migrateProject(p);
-    expect(r.ok).toBe(true);if(!r.ok)throw Error('migration');expect(r.value.schemaVersion).toBe(10);expect(r.value.assetLibrary).toEqual(emptyAssetLibrary());expect(p).toEqual(before);
+    expect(r.ok).toBe(true);if(!r.ok)throw Error('migration');expect(r.value.schemaVersion).toBe(12);expect(r.value.assetLibrary).toEqual(emptyAssetLibrary());expect(p).toEqual(before);
   });
 });
 describe('可编辑组件配方',()=>{

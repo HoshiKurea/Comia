@@ -1,3 +1,4 @@
+import { invalidateTransformHints } from '../appearance/transforms';
 import { assetReferences } from '../assets/references';
 import { preserveUnlinkedMasks } from '../images/maskGeometry';
 import { numberCreatedPanels } from '../panels/numbering';
@@ -27,9 +28,10 @@ import { finishActiveTextEdit } from '../text/editLifecycle';
 import { clearMangaGeometryCache } from '../bubbles/composeBubble';
 import { clearDialogueCache } from '../bubbles/dialogueGeometry';
 import { clearOverlapRasterCache } from '../bubbles/overlapRaster';
+import { clearBubbleInkCache } from '../bubbles/inkPaint';
 import { clearTailGeometryCache } from '../bubbles/tailGeometry';
 import { prepareHistoryTravel,historyTravelGuard,type HistoryJumpToken } from './historyTravel';
-function releaseMangaCaches():void{clearOverlapRasterCache();clearMangaGeometryCache();clearDialogueCache();clearTailGeometryCache();}
+function releaseMangaCaches():void{clearBubbleInkCache();clearOverlapRasterCache();clearMangaGeometryCache();clearDialogueCache();clearTailGeometryCache();}
 
 type BusEvent =
   | { type: 'historyTrim'; entries: HistoryEntry[] }
@@ -82,6 +84,7 @@ export function execute(spec: TransactionSpec): Result<HistoryEntry | null> {
       const upgraded = migrateProject(draft); if (!upgraded.ok) return upgraded; draft = upgraded.value;
     }
     spec.mutate(draft);
+    invalidateTransformHints(draft);
     if (draft.schemaVersion >= 9) completeExtensionProject(draft); else stripExtensionDefaults(draft, before);
     repairDialogueGroups(draft,before);
     const numbered = numberCreatedPanels(before, draft, spec.defaultNamedPanelIds, spec.panelReplacement);

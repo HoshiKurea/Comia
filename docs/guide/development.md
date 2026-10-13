@@ -87,12 +87,15 @@ npm run build
 自由绘画的实际Edge流程与DPR1/2性能场景：
 
 ```powershell
+npx playwright test -c tests/config/playwright.hand-bubble.config.ts
+npx playwright test -c tests/config/playwright.selection-properties.config.ts
+npx playwright test -c tests/config/playwright.hand-bubble-performance.config.ts
 npx playwright test -c tests/config/playwright.freehand.config.ts
 npm run build
 npx playwright test -c tests/config/playwright.freehand-offline.config.ts
 ```
 
-分别使用独立端口5252与4252，不操作开发者正在使用的5173作品。结果写入被忽略的`output/`；数据模型、轮廓、源摘要、事务、重开、尾巴、融合及预算测试位于`tests/unit/freehand.test.ts`。
+手绘气泡／多选属性／压力测试使用5231／5233／5232，素材窗口与离线分别使用5252与4252，不操作开发者正在使用的5173作品。结果写入被忽略的`output/`；数据模型、轮廓、源摘要、事务、重开、尾巴、融合及预算测试位于`tests/unit/freehand.test.ts`。
 
 ## 浏览器检查
 
@@ -208,3 +211,15 @@ Windows 的 WebKit 自动化不等于 macOS Safari 实机。macOS Safari 与实�
 6. 源码提交、执行的检查命令与实际结果；未执行的检查明确写未执行。
 
 继续开发前先读 [STATUS](../STATUS.md)、[架构约定](../architecture.md)与适用 AGENTS.md，检查工作树，避免覆盖他人修改。项目源码当前没有指定开源许可证；贡献与分发权限需与仓库所有者确认。字体许可另见 [OFL](../../public/licenses/noto-cjk-OFL.txt)。
+
+### 属性面板专项核验
+
+```powershell
+npx playwright test --config tests/config/playwright.reference-properties.config.ts
+npx playwright test --config tests/config/playwright.reference-performance.config.ts
+npx playwright test --config tests/config/playwright.selection-properties.config.ts
+npx playwright test --config tests/config/playwright.hand-bubble.config.ts
+npx playwright test --config tests/config/playwright.hand-bubble-performance.config.ts
+```
+
+性能配置使用单worker，避免与其他测试并行测量。测试只测JS输入／绘制，不代表GPU帧呈现；输出存本机忽略目录。效果输出以真实PNG/PDF生成和解析为准，不用CSS截图代替。

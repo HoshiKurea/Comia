@@ -1,46 +1,138 @@
-import {createStore} from 'zustand/vanilla';
-import {fail,ok,problem,type BubbleBrushOptions,type BubbleLayer,type Id,type Layer,type Mat,type Point,type Project,type Rect,type Result,type Viewport} from '../domain/types';
-import {createLayer} from '../domain/factories';
-import {apply,clientToPage,IDENTITY,inverse,multiply,scaling,translation,worldMatrix} from '../geometry/matrix';
-import {documentStore,getDocument} from '../state/documentStore';
-import {sessionStore} from '../state/sessionStore';
-import {runtimeStore} from '../state/runtimeStore';
-import {effectiveLayerFlags} from '../state/effectiveFlags';
-import {cancelActiveGesture,registerGestureCanceller} from '../interaction/activeGesture';
-import {finishActiveTextEdit} from '../text/editLifecycle';
-import {execute} from '../history/commandBus';
-import {migrateProject} from '../storage/migrateProject';
-import {retainResources} from '../storage/blobRepository';
-import {parseBubbleContour} from '../domain/mangaValidation';
-import {composeBubble} from './composeBubble';
-import {bubbleContourFromStroke} from './brushGeometry';
-import {DEFAULT_BUBBLE_BRUSH,parseBubbleBrushOptions} from './brushOptions';
-interface BubbleBrushDraft {base:Project;epoch:number;stateId:Id;pageId:Id;parentId:Id|null;pointerId:number|null;viewport:Viewport;rect:Rect;inverse:Mat;localToScreen:Mat;raw:Point[];options:BubbleBrushOptions;seed:number;sceneBase:Project;preview:Project;layerId:Id;stage:'drawing'|'review';error:string;valid:boolean}
-export const bubbleBrushStore=createStore<{options:BubbleBrushOptions;active:BubbleBrushDraft|null}>(()=>({options:structuredClone(DEFAULT_BUBBLE_BRUSH),active:null}));
-export const currentBubbleBrush=()=>bubbleBrushStore.getState().active;
-let cleanups:(()=>void)[]=[];
-export function cancelBubbleBrush():void{if(!currentBubbleBrush())return;for(const fn of cleanups)fn();cleanups=[];bubbleBrushStore.setState({active:null});runtimeStore.setState({gestureActive:false,previewProject:null});}
-export function activateBubbleBrush():Result<void>{const r=finishActiveTextEdit();if(!r.ok)return r;cancelActiveGesture();sessionStore.setState({toolMode:'bubble-brush'});return ok(undefined);}
-export function setBubbleBrushOptions(options:BubbleBrushOptions):Result<void>{const r=parseBubbleBrushOptions(options);if(!r.ok)return r;const a=currentBubbleBrush();bubbleBrushStore.setState({options:structuredClone(r.value),...(a?{active:{...a,options:structuredClone(r.value)}}:{})});return a?.stage==='review'?rebuildBubbleBrush():ok(undefined);}
-export function beginBubbleBrush(client:Point,pointerId:number,rect:Rect,viewport:Viewport):Result<void>{
- if(!Number.isSafeInteger(pointerId)||pointerId<0||![client.x,client.y,rect.x,rect.y,rect.width,rect.height,viewport.zoom,viewport.pan.x,viewport.pan.y].every(Number.isFinite)||rect.width<=0||rect.height<=0||viewport.zoom<=0)return fail(problem('bubble-brush/input','笔迹坐标、视口和指针必须有效'));
- if(currentBubbleBrush())return fail(problem('bubble-brush/active','请先修正、完成或取消当前气泡'));
- const r=finishActiveTextEdit();if(!r.ok)return r;cancelActiveGesture();const doc=getDocument(),s=sessionStore.getState(),page=doc.project.pages[s.activePageId],p=clientToPage(client,{left:rect.x,top:rect.y},viewport);if(!page||s.toolMode!=='bubble-brush'||s.spacePan||p.x<0||p.y<0||p.x>page.width||p.y>page.height)return fail(problem('bubble-brush/outside','请从页面内开始绘制'));
- let parentId=s.scopeId;if(parentId){const scope=doc.project.layers[parentId],flags=effectiveLayerFlags(doc.project,parentId);if(!scope||scope.pageId!==page.id||!flags.visible||flags.locked)return fail(problem('bubble-brush/container','当前编辑范围已失效、锁定或隐藏'));while(parentId){const candidate:Layer=doc.project.layers[parentId];if(candidate.type==='group'&&!candidate.dialogue)break;parentId=candidate.parentId;}}
- const world=parentId?worldMatrix(doc.project,parentId):IDENTITY,inv=inverse(world);if(!inv.ok)return inv;const migrated=migrateProject(structuredClone(doc.project));if(!migrated.ok)return migrated;
- const b=createLayer('bubble',page.id,'手绘气泡') as BubbleLayer;b.parentId=parentId;b.width=b.height=16;b.style.fill='#FFFFFF00';b.style.borderWidth=0;const sceneBase=migrated.value;sceneBase.layers[b.id]=b;const container=parentId?sceneBase.layers[parentId]:null;if(container&&'children'in container)container.children.push(b.id);else sceneBase.pages[page.id].roots.push(b.id);
- const options=structuredClone(bubbleBrushStore.getState().options),seed=crypto.getRandomValues(new Uint32Array(1))[0];bubbleBrushStore.setState({active:{base:doc.project,epoch:doc.epoch,stateId:doc.history.stateId,pageId:page.id,parentId,pointerId,viewport:structuredClone(viewport),rect:{...rect},inverse:inv.value,localToScreen:multiply(scaling(viewport.zoom,viewport.zoom),world),raw:[apply(inv.value,p)],options,seed,sceneBase,preview:sceneBase,layerId:b.id,stage:'drawing',error:'',valid:false}});runtimeStore.setState({gestureActive:true});
- cleanups=[retainResources(doc.project),registerGestureCanceller(cancelBubbleBrush),documentStore.subscribe(n=>{if(currentBubbleBrush()&&(n.epoch!==doc.epoch||n.history.stateId!==doc.history.stateId))cancelBubbleBrush();}),sessionStore.subscribe(n=>{if(currentBubbleBrush()&&(n.activePageId!==page.id||n.toolMode!=='bubble-brush'||n.scopeId!==s.scopeId||n.spacePan||JSON.stringify(n.viewportByPage[page.id])!==JSON.stringify(s.viewportByPage[page.id])))cancelBubbleBrush();})];return ok(undefined);
+import { createStore } from 'zustand/vanilla';
+import { fail, ok, problem, type BubbleBrushOptions, type BubbleLayer, type Id, type InkSample, type InkStroke, type Layer, type Mat, type Point, type Project, type Rect, type Result, type Viewport } from '../domain/types';
+import { createLayer } from '../domain/factories';
+import { newId } from '../domain/id';
+import { apply, clientToPage, IDENTITY, inverse, multiply, scaling, translation, worldMatrix } from '../geometry/matrix';
+import { documentStore, getDocument } from '../state/documentStore';
+import { sessionStore } from '../state/sessionStore';
+import { runtimeStore } from '../state/runtimeStore';
+import { effectiveLayerFlags } from '../state/effectiveFlags';
+import { cancelActiveGesture, registerGestureCanceller } from '../interaction/activeGesture';
+import { finishActiveTextEdit } from '../text/editLifecycle';
+import { execute } from '../history/commandBus';
+import { migrateProject } from '../storage/migrateProject';
+import { retainResources } from '../storage/blobRepository';
+import { composeBubble } from './composeBubble';
+import { captureAutoClosedBubble } from './autoCloseGeometry';
+import { DEFAULT_BUBBLE_BRUSH, parseBubbleBrushOptions } from './brushOptions';
+import { DRAWING_LIMITS, parseDrawingSource } from '../freehand/model';
+import { freehandRegion, validBubbleRegion } from '../freehand/geometry';
+import { bubbleTails } from './ownership';
+import { tailAnchors } from './tailGeometry';
+import { closestTailU } from './tailCommands';
+import { recordDrawingInput, recordDrawingCommit } from '../freehand/metrics';
+export type HandBubbleMode = 'contour' | 'ink' | 'erase-ink' | 'add-shape' | 'subtract-shape';
+interface BrushInkOptions { width: number; color: string; opacity: number }
+interface BubbleBrushDraft {
+  base: Project; epoch: number; stateId: Id; pageId: Id; parentId: Id | null; pointerId: number | null;
+  viewport: Viewport; rect: Rect; inverse: Mat; localToScreen: Mat; raw: InkSample[];
+  options: BubbleBrushOptions; ink: BrushInkOptions; strokeId: Id; seed: number; sceneBase: Project; preview: Project;
+  layerId: Id; mode: HandBubbleMode; stage: 'drawing' | 'review'; error: string; valid: boolean;
 }
-export function appendBubbleBrushSamples(clients:readonly Point[]):Result<void>{const a=currentBubbleBrush();if(!a||a.stage!=='drawing')return fail(problem('bubble-brush/inactive','没有活动笔迹'));const raw=[...a.raw];for(const c of clients){const p=apply(a.inverse,clientToPage(c,{left:a.rect.x,top:a.rect.y},a.viewport));if(!Number.isFinite(p.x)||!Number.isFinite(p.y))return fail(problem('bubble-brush/point','笔迹坐标必须有限'));if(raw.length>=4096){bubbleBrushStore.setState({active:{...a,raw,error:'单笔超过4096点，请缩短笔迹'}});return fail(problem('bubble-brush/budget','单笔超过4096点'));}const last=raw.at(-1)!;if(Math.hypot(p.x-last.x,p.y-last.y)>1e-8)raw.push(p);}bubbleBrushStore.setState({active:{...a,raw}});return ok(undefined);}
-function preparedLayer(a:BubbleBrushDraft,b:BubbleLayer):BubbleLayer{const o=a.options;return{...b,style:{borderWidth:o.borderWidth,borderColor:o.borderColor,fill:o.fill,radius:0,innerStroke:structuredClone(o.innerStroke),outerStroke:structuredClone(o.outerStroke)},handDrawn:o.handDrawn?{...o.handDrawn,seed:a.seed}:null,edgeStyle:{recipe:'normal-offset-v1',wobble:o.handDrawn?.wobble??0,seed:a.seed}};}
-export function rebuildBubbleBrush():Result<void>{const a=currentBubbleBrush();if(!a)return fail(problem('bubble-brush/inactive','没有活动气泡'));let b=a.preview.layers[a.layerId] as BubbleLayer;
- if(!a.valid){const fit=bubbleContourFromStroke(a.raw,a.options,a.localToScreen);if(!fit.ok){bubbleBrushStore.setState({active:{...a,stage:'review',pointerId:null,error:fit.problems[0].message,valid:false}});return fit;}b={...b,width:fit.value.width,height:fit.value.height,shape:'handOval',contour:fit.value.contour,matrix:translation(fit.value.origin.x,fit.value.origin.y)};}
- b={...b,contour:b.contour?{...b.contour,tension:a.options.smoothing}:b.contour};b=preparedLayer(a,b);const preview={...a.sceneBase,layers:{...a.sceneBase.layers,[a.layerId]:b}},geometry=composeBubble(preview,b.id,{localToOutput:a.localToScreen,tolerancePx:.25});if(!geometry.ok){bubbleBrushStore.setState({active:{...a,stage:'review',pointerId:null,error:geometry.problems[0].message}});return geometry;}
- bubbleBrushStore.setState({active:{...a,preview,stage:'review',pointerId:null,error:'',valid:true}});return ok(undefined);
+export const bubbleBrushStore = createStore<{ options: BubbleBrushOptions; ink: BrushInkOptions; mode: HandBubbleMode; targetId: Id | null; active: BubbleBrushDraft | null }>(() => ({ options: structuredClone(DEFAULT_BUBBLE_BRUSH), ink: { width: 12, color: '#202020FF', opacity: 1 }, mode: 'contour', targetId: null, active: null }));
+export const currentBubbleBrush = () => bubbleBrushStore.getState().active;
+let cleanups: (() => void)[] = [];
+export function cancelBubbleBrush(): void {
+  if (!currentBubbleBrush()) return;
+  const dispose = cleanups; cleanups = []; dispose.forEach(fn => fn());
+  bubbleBrushStore.setState({ active: null }); runtimeStore.setState({ gestureActive: false, previewProject: null });
 }
-export const finishBubbleBrush=rebuildBubbleBrush;
-export function reviseRawBubbleBrushPoint(index:number,p:Point):Result<void>{const a=currentBubbleBrush();if(!a||a.valid||!Number.isInteger(index)||index<0||index>=a.raw.length||!Number.isFinite(p.x)||!Number.isFinite(p.y))return fail(problem('bubble-brush/raw-point','原笔迹修正点无效'));const raw=a.raw.map((q,i)=>i===index?{...p}:q);bubbleBrushStore.setState({active:{...a,raw}});return ok(undefined);}
-export function reviseBubbleBrushNode(index:number,p:Point):Result<void>{const a=currentBubbleBrush(),old=a?.preview.layers[a.layerId];if(!a||!a.valid||old?.type!=='bubble'||!old.contour||!Number.isInteger(index)||index<0||index>=old.contour.nodes.length||!Number.isFinite(p.x)||!Number.isFinite(p.y))return fail(problem('bubble-brush/no-contour','请先完成合法闭合轮廓'));const contour={...old.contour,nodes:old.contour.nodes.map((n,i)=>i===index?{x:(p.x-old.matrix[4])/old.width,y:(p.y-old.matrix[5])/old.height}:n)},parsed=parseBubbleContour(contour,'brush.contour');if(!parsed.ok)return parsed;const b={...old,contour},preview={...a.preview,layers:{...a.preview.layers,[old.id]:b}},geometry=composeBubble(preview,b.id,{localToOutput:a.localToScreen,tolerancePx:.25});if(!geometry.ok)return geometry;bubbleBrushStore.setState({active:{...a,preview,error:''}});return ok(undefined);}
-export function retryBubbleBrush():void{const a=currentBubbleBrush();if(a)bubbleBrushStore.setState({active:{...a,valid:false,error:''}});if(a)rebuildBubbleBrush();}
-export function commitBubbleBrush():Result<Id>{const a=currentBubbleBrush();if(!a||!a.valid||a.error)return fail(problem('bubble-brush/invalid','请先修正闭合轮廓与笔触参数'));const doc=getDocument();if(doc.epoch!==a.epoch||doc.history.stateId!==a.stateId){cancelBubbleBrush();return fail(problem('bubble-brush/stale','作品已变化，气泡草稿已取消'));}const b=structuredClone(a.preview.layers[a.layerId]);cancelBubbleBrush();const r=execute({label:'绘制手绘气泡',context:{pageId:a.pageId,selection:sessionStore.getState().selection},afterSelection:[b.id],mutate(p){const m=migrateProject(p);if(!m.ok)throw Error(m.problems[0].message);Object.assign(p,m.value);p.layers[b.id]=b;const parent=a.parentId?p.layers[a.parentId]:null;if(parent&&'children'in parent)parent.children.push(b.id);else p.pages[a.pageId].roots.push(b.id);}});if(r.ok)sessionStore.setState({toolMode:'select'});return r.ok?ok(b.id):r;}
+export function activateBubbleBrush(): Result<void> { const r = finishActiveTextEdit(); if (!r.ok) return r; cancelActiveGesture(); bubbleBrushStore.setState({ mode: 'contour', targetId: null }); sessionStore.setState({ toolMode: 'bubble-brush' }); return ok(undefined); }
+export function activateHandBubbleEdit({ targetId, mode }: { targetId: Id; mode: Exclude<HandBubbleMode, 'contour'> }): Result<void> {
+  const finish = finishActiveTextEdit(); if (!finish.ok) return finish;
+  const p = getDocument().project, b = p.layers[targetId], flags = effectiveLayerFlags(p, targetId);
+  if (b?.type !== 'bubble' || b.shape !== 'freehand' || !b.freehandSource || b.pageId !== sessionStore.getState().activePageId) return fail(problem('bubble-brush/target', '请选择手绘轮廓气泡；标准／节点气泡保留原编辑方式'));
+  if (!flags.visible || flags.locked) return fail(problem('bubble-brush/locked', '请显示并解锁气泡及其所属容器'));
+  cancelActiveGesture(); bubbleBrushStore.setState({ mode, targetId }); sessionStore.setState({ toolMode: 'bubble-brush', selection: [targetId] }); return ok(undefined);
+}
+export function setBubbleInkOptions(patch: Partial<BrushInkOptions>): Result<void> {
+  const ink = { ...bubbleBrushStore.getState().ink, ...patch };
+  if (!Number.isFinite(ink.width) || ink.width < 1 || ink.width > 512 || !Number.isFinite(ink.opacity) || ink.opacity < 0 || ink.opacity > 1 || !/^#[0-9a-f]{8}$/i.test(ink.color)) return fail(problem('bubble-brush/ink', '笔宽1～512、透明度0～100%、颜色需为RGBA'));
+  bubbleBrushStore.setState({ ink: { ...ink, color: ink.color.toUpperCase() } }); return ok(undefined);
+}
+export function setBubbleBrushOptions(options: BubbleBrushOptions): Result<void> { const r = parseBubbleBrushOptions(options); if (!r.ok) return r; bubbleBrushStore.setState({ options: structuredClone(r.value) }); return ok(undefined); }
+export function beginBubbleBrush(client: Point, pointerId: number, rect: Rect, viewport: Viewport, pressure = .5): Result<void> {
+  if (!Number.isSafeInteger(pointerId) || pointerId < 0 || ![client.x, client.y, rect.x, rect.y, rect.width, rect.height, viewport.zoom, viewport.pan.x, viewport.pan.y, pressure].every(Number.isFinite) || rect.width <= 0 || rect.height <= 0 || viewport.zoom <= 0) return fail(problem('bubble-brush/input', '笔迹坐标、视口和指针必须有效'));
+  if (currentBubbleBrush()) return fail(problem('bubble-brush/active', '请结束当前笔迹'));
+  const finish = finishActiveTextEdit(); if (!finish.ok) return finish; cancelActiveGesture();
+  const doc = getDocument(), s = sessionStore.getState(), page = doc.project.pages[s.activePageId], p = clientToPage(client, { left: rect.x, top: rect.y }, viewport), config = bubbleBrushStore.getState();
+  if (!page || s.toolMode !== 'bubble-brush' || s.spacePan || p.x < 0 || p.y < 0 || p.x > page.width || p.y > page.height) return fail(problem('bubble-brush/outside', '请从页面内开始绘制'));
+  const migrated = migrateProject(doc.project); if (!migrated.ok) return migrated;
+  let parentId = s.scopeId, world = IDENTITY, layerId: Id; const sceneBase = migrated.value;
+  if (config.mode === 'contour') {
+    while (parentId) { const node: Layer | undefined = sceneBase.layers[parentId]; if (!node || !effectiveLayerFlags(sceneBase, parentId).visible || effectiveLayerFlags(sceneBase, parentId).locked) return fail(problem('bubble-brush/container', '当前容器已失效、隐藏或锁定')); if (node.type === 'group' && !node.dialogue) break; parentId = node.parentId; }
+    world = parentId ? worldMatrix(sceneBase, parentId) : IDENTITY; layerId = newId();
+  } else {
+    const b = config.targetId ? sceneBase.layers[config.targetId] : null;
+    if (b?.type !== 'bubble' || b.shape !== 'freehand' || !b.freehandSource || b.pageId !== page.id || s.selection.length !== 1 || s.selection[0] !== b.id) return fail(problem('bubble-brush/target', '请重新选择要编辑的手绘气泡'));
+    const flags = effectiveLayerFlags(sceneBase, b.id); if (!flags.visible || flags.locked) return fail(problem('bubble-brush/locked', '气泡或其容器已锁定／隐藏'));
+    if (config.mode.endsWith('shape') && b.children.some(id => effectiveLayerFlags(sceneBase, id).locked)) return fail(problem('bubble-brush/child-locked', '修形会影响锁定的文字或尾巴，请先解锁'));
+    parentId = b.parentId; layerId = b.id; world = multiply(worldMatrix(sceneBase, b.id), scaling(b.width / b.freehandSource.width, b.height / b.freehandSource.height));
+  }
+  const inv = inverse(world); if (!inv.ok) return inv;
+  const a: BubbleBrushDraft = { base: doc.project, epoch: doc.epoch, stateId: doc.history.stateId, pageId: page.id, parentId, pointerId, viewport: structuredClone(viewport), rect: { ...rect }, inverse: inv.value, localToScreen: multiply(scaling(viewport.zoom, viewport.zoom), world), raw: [{ ...apply(inv.value, p), pressure: Math.max(0, Math.min(1, pressure)), dt: 0 }], options: structuredClone(config.options), ink: { ...config.ink }, strokeId: newId(), seed: crypto.getRandomValues(new Uint32Array(1))[0], sceneBase, preview: sceneBase, layerId, mode: config.mode, stage: 'drawing', error: '', valid: false };
+  bubbleBrushStore.setState({ active: a }); runtimeStore.setState({ gestureActive: true });
+  cleanups = [retainResources(doc.project), registerGestureCanceller(cancelBubbleBrush), documentStore.subscribe(n => { if (currentBubbleBrush() && (n.epoch !== doc.epoch || n.history.stateId !== doc.history.stateId)) cancelBubbleBrush(); }), sessionStore.subscribe(n => { if (currentBubbleBrush() && (n.activePageId !== page.id || n.toolMode !== 'bubble-brush' || n.scopeId !== s.scopeId || n.spacePan || config.mode !== 'contour' && n.selection[0] !== layerId || JSON.stringify(n.viewportByPage[page.id]) !== JSON.stringify(s.viewportByPage[page.id]))) cancelBubbleBrush(); })];
+  return ok(undefined);
+}
+export function appendBubbleBrushSamples(clients: readonly (Point & { pressure?: number })[]): Result<void> {
+  const started=performance.now();
+  const a = currentBubbleBrush(); if (!a || a.stage !== 'drawing') return fail(problem('bubble-brush/inactive', '没有活动笔迹'));
+  if (a.error && a.raw.length >= DRAWING_LIMITS.strokePoints) return fail(problem('bubble-brush/budget', a.error));
+  const raw = [...a.raw];
+  for (const c of clients) {
+    const p = apply(a.inverse, clientToPage(c, { left: a.rect.x, top: a.rect.y }, a.viewport));
+    if (![p.x, p.y, c.pressure ?? .5].every(Number.isFinite)) { cancelBubbleBrush(); return fail(problem('bubble-brush/point', '笔迹坐标必须有限，已取消这一笔')); }
+    const last = raw.at(-1)!; if (Math.hypot(p.x - last.x, p.y - last.y) <= 1e-6) continue;
+    if (raw.length >= DRAWING_LIMITS.strokePoints) { cancelBubbleBrush(); return fail(problem('bubble-brush/budget', '单笔超过8192点，已取消这一笔；请缩短笔迹')); }
+    raw.push({ ...p, pressure: Math.max(0, Math.min(1, c.pressure ?? last.pressure)), dt: 0 });
+  }
+  bubbleBrushStore.setState({ active: { ...a, raw } }); const result=a.mode === 'contour' ? ok(undefined) : rebuildBubbleBrush();recordDrawingInput(started);return result;
+}
+export function rebuildBubbleBrush(): Result<void> {
+  const a = currentBubbleBrush(); if (!a) return fail(problem('bubble-brush/inactive', '没有活动气泡'));
+  let b: BubbleLayer;
+  if (a.mode === 'contour') {
+    const capture = captureAutoClosedBubble(a.raw, a.localToScreen); if (!capture.ok) return capture;
+    const q = capture.value, o = a.options; b = createLayer('bubble', a.pageId, '手绘气泡') as BubbleLayer;
+    b.id = a.layerId; b.parentId = a.parentId; b.shape = 'freehand'; b.width = q.width; b.height = q.height; b.matrix = translation(q.origin.x, q.origin.y); b.freehandSource = q.source; b.handDrawn = null; b.contour = null;
+    b.style = { borderWidth: o.borderWidth, borderColor: o.borderColor, fill: o.fill, radius: 0, innerStroke: { ...o.innerStroke }, outerStroke: { ...o.outerStroke } }; b.edgeStyle = { recipe: 'normal-offset-v1', wobble: o.handDrawn?.wobble ?? 0, seed: a.seed };
+  } else {
+    const old = a.sceneBase.layers[a.layerId]; if (old?.type !== 'bubble' || !old.freehandSource) return fail(problem('bubble-brush/target', '气泡已失效'));
+    const source = old.freehandSource.version === 2 ? old.freehandSource : { ...old.freehandSource, version: 2 as const, ink: [] };
+    const stroke: InkStroke = { id: a.strokeId, tool: a.mode === 'erase-ink' ? 'eraser' : 'pen', points: a.raw, ...a.ink, pressureMode: 'fixed' };
+    const next = a.mode === 'ink' || a.mode === 'erase-ink' ? { ...source, ink: [...source.ink, stroke] } : { ...source, edits: [...source.edits, { id: a.strokeId, mode: a.mode === 'add-shape' ? 'add' as const : 'subtract' as const, stroke }] };
+    const valid = parseDrawingSource(next, 'bubble'); if (!valid.ok) return invalidPreview(a, valid);
+    b = { ...old, freehandSource: valid.value };
+    if (a.mode.endsWith('shape')) { const region = freehandRegion(valid.value); if (!region.ok) return invalidPreview(a, region); const topology = validBubbleRegion(region.value); if (!topology.ok) return invalidPreview(a, topology); }
+  }
+  const preview = { ...a.sceneBase, layers: { ...a.sceneBase.layers, [b.id]: b } };
+  if (a.mode.endsWith('shape')) for (const tail of bubbleTails(a.sceneBase, b.id)) {
+    if (tail.attachment.mode !== 'bubble') continue;
+    const old = a.sceneBase.layers[b.id] as BubbleLayer, anchors = tailAnchors(tail, old); if (!anchors.ok) return invalidPreview(a, anchors);
+    const nearest = closestTailU(b, anchors.value.base); if (!nearest.ok) return invalidPreview(a, nearest);
+    preview.layers[tail.id] = { ...tail, attachment: { ...tail.attachment, attachU: nearest.value.u, baseWidth: Math.max(4, Math.min(tail.attachment.baseWidth, nearest.value.total * .2)) } };
+  }
+  const geometry = composeBubble(preview, b.id);
+  if (!geometry.ok) return invalidPreview(a, geometry);
+  bubbleBrushStore.setState({ active: { ...a, preview, valid: true, error: '' } }); return ok(undefined);
+}
+function invalidPreview(a: BubbleBrushDraft, r: Result<unknown>): Result<void> { if (!r.ok) { bubbleBrushStore.setState({ active: { ...a, error: r.problems[0].message, valid: false } }); return r; } return ok(undefined); }
+export function commitBubbleBrush(): Result<Id> {
+  const a = currentBubbleBrush(); if (!a || !a.valid || a.error) return fail(problem('bubble-brush/invalid', a?.error || '请画出合法轮廓或笔迹'));
+  const doc = getDocument(); if (doc.epoch !== a.epoch || doc.history.stateId !== a.stateId) { cancelBubbleBrush(); return fail(problem('bubble-brush/stale', '作品已变化，笔迹已取消')); }
+  const b = structuredClone(a.preview.layers[a.layerId]) as BubbleLayer;
+  cancelBubbleBrush();
+  const r = execute({ label: a.mode === 'contour' ? '绘制手绘气泡' : a.mode.endsWith('shape') ? '笔刷修形气泡' : '绘制气泡细节', context: { pageId: a.pageId, selection: sessionStore.getState().selection }, afterSelection: [b.id], mutate(p) {
+    const migrated = migrateProject(p); if (!migrated.ok) throw Error(migrated.problems[0].message); Object.assign(p, migrated.value); p.layers[b.id] = b;
+    if (a.mode === 'contour') { const parent = a.parentId ? p.layers[a.parentId] : null; if (parent && 'children' in parent) parent.children = [...parent.children, b.id]; else p.pages[a.pageId].roots = [...p.pages[a.pageId].roots, b.id]; }
+    else if (a.mode.endsWith('shape')) for (const tail of bubbleTails(a.preview, b.id)) p.layers[tail.id] = structuredClone(tail);
+  } });
+  if (r.ok && a.mode === 'contour') sessionStore.setState({ toolMode: 'select' }); return r.ok ? ok(b.id) : r;
+}
+export function finishBubbleBrush(): Result<Id> {
+  const started=performance.now();
+  const a = currentBubbleBrush(); if (!a) return fail(problem('bubble-brush/inactive', '没有活动笔迹'));
+  if (a.error && a.raw.length >= DRAWING_LIMITS.strokePoints) { const error = a.error; cancelBubbleBrush(); return fail(problem('bubble-brush/budget', error)); }
+  const rebuilt = rebuildBubbleBrush(); if (!rebuilt.ok) { cancelBubbleBrush(); return rebuilt; } const result = commitBubbleBrush(); if (!result.ok) cancelBubbleBrush(); recordDrawingCommit(started);return result;
+}

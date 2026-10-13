@@ -1,35 +1,218 @@
-:root{--workspace:#e7e5df;--panel:#f9f8f4;--surface:#fff;--text:#293633;--muted:#737e76;--border:#d8d7d0;--selected:#f8e7dc;--toolbar:#f3f2ed;--dot:#c6c6bf;--dialog:#fbfaf6;--focus:#b74d24;color-scheme:light}
-:root[data-theme=dark]{--workspace:#151c1a;--panel:#242d29;--surface:#303b35;--text:#e9f0e9;--muted:#b6c2b8;--border:#4b5c50;--selected:#52392d;--toolbar:#2a342f;--dot:#435147;--dialog:#28332d;--focus:#ffac82;color-scheme:dark}
-body{background:var(--workspace);color:var(--text)}
-.workspace,.canvas-viewport{background-color:var(--workspace)}
-.canvas-viewport{background-image:radial-gradient(var(--dot) .6px,transparent .6px)}
-.left-panel,.right-panel{background:var(--panel);border-color:var(--border)}
-.canvas-toolbar{background:var(--toolbar);border-color:var(--border);color:var(--muted)}
-.section-title,.inspector-content h3,.readout strong,.page-item strong,.page-settings>strong,.empty-inspector p{color:var(--text)}
-.section-title small,.small-caption,.side-foot,.hint,.empty-hint,.page-item small,.color-field,.readout,.field span,.tabbar button,.page-drop-end,.reparent-select,.export-scale{color:var(--muted)}
-.tabbar,.side-foot,.inspector,.layer-row,.template-management{border-color:var(--border)}
-.tabbar button.active{color:var(--text)}
-.field,.color-field input,.button-stack button,.search,.page-settings,.page-settings input,.page-settings select,.reparent-select select,.template-management button,.export-scale select{background:var(--surface);color:var(--text);border-color:var(--border)}
-.field input,.bubble-select select,.layer-name,.toolbar-right button,.icon-button,.template-management strong{color:var(--text)}
-.layer-row.selected,.page-item.active{background:var(--selected)}
-.page-item>button:first-child,.page-drop-end{color:var(--text)}
-.readout,.page-drop-end{border-color:var(--border)}
-.text-dialog{background:var(--dialog)}
-.dialog-heading,.dialog-actions,.open-dialog p,.recovery-row span{color:var(--text);border-color:var(--border)}
-.dialog-actions button,.recovery-row button,.text-dialog textarea{background:var(--surface);color:var(--text);border-color:var(--border)}
-.dialog-actions button.primary{background:#354d3e;color:#fff}
-.theme-picker{display:flex;gap:5px;align-items:center;font-size:11px;color:var(--muted)}
-.theme-picker select{border:1px solid var(--border);border-radius:4px;padding:4px;background:var(--surface);color:var(--text);max-width:85px}
-button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
-.canvas-text-input:focus-visible{outline:0}
-.canvas-text-input.visible-input:focus-visible{outline:2px solid var(--focus)}
-.field span{white-space:nowrap;flex:none}
-.text-inspector>.field:not(.bubble-select){margin:0 16px 10px;width:calc(100% - 32px)}
-.top-actions{min-width:0;gap:6px}.top-actions button{padding:7px 8px}.brand small{display:none}
-.text-overflow-status{color:#a53f1d}:root[data-theme=dark] .text-overflow-status{color:#ffb48b}
-.canvas-viewport.space-pan{cursor:grab}.canvas-viewport.space-pan:active{cursor:grabbing}
-.snap16-toggle{display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:11px;color:var(--muted)}.snap16-toggle input{accent-color:#df835e}
-.geometry-constraint{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin:12px 16px;font-size:11px;color:var(--muted)}.geometry-constraint small{width:100%;font-size:10px}
-.toolbar-right{letter-spacing:0}
-.notice-object,.notice-message{display:block}.notice-object{margin-bottom:5px}.notice-actions{display:flex;gap:8px;margin-top:8px}.notice-actions button{border:1px solid var(--border);border-radius:4px;padding:4px 7px;background:var(--surface);color:var(--text);font-size:11px}.notice{max-height:30vh;overflow:auto}.notice-stack{max-height:75vh;overflow:auto}
-.operation-hint{margin:0;padding:5px 16px;color:var(--text);background:var(--surface);border-bottom:1px solid var(--border);font-size:11px;flex:none}
+/* Comia design tokens — 墨与纸 · 网点
+   Single source of truth for colour, type, radius and elevation.
+   Component sheets reference these variables and never hard-code a colour.
+
+   Grounding: this is a manga/manhua panel editor, so the interface borrows the
+   language of print production rather than generic application chrome. The
+   canvas holds the user's artwork — everything around it stays neutral so white
+   paper reads as white, and a single vermilion (朱) accent marks selection and
+   attention the way an editor's red pen does. */
+
+:root {
+  color-scheme: light;
+
+  /* --- Surfaces ------------------------------------------------------------
+     A cool neutral paper stack. Deliberately free of any warm cast: a cream
+     ground tints the artwork and makes white paper look grey by comparison. */
+  --workspace: #f2f2f0;   /* the desk the page sits on */
+  --toolbar: #f7f7f5;     /* docked chrome: rails, headings, tab strips */
+  --panel: #fbfbfa;       /* docked panel body */
+  --surface: #ffffff;     /* inputs and raised controls */
+  --dialog: #fcfcfb;      /* modal ground */
+  --overlay: rgba(16, 18, 20, .68);
+
+  /* The app spine is always the darkest surface in both themes. */
+  --topbar: #171a1c;
+  --topbar-text: #f4f5f4;
+  --topbar-muted: rgba(244, 245, 244, .62);
+  --topbar-hover: rgba(255, 255, 255, .12);
+  --topbar-border: rgba(255, 255, 255, .10);
+
+  /* Bars that float directly over artwork keep a dark ground in both themes,
+     the way every drawing tool does — the artwork is the light surface. */
+  --overlay-surface: rgba(20, 23, 25, .95);
+  --overlay-text: #f4f5f4;
+  --overlay-muted: rgba(244, 245, 244, .66);
+  --overlay-border: rgba(255, 255, 255, .14);
+  --overlay-hover: rgba(255, 255, 255, .12);
+
+  /* --- Ink -----------------------------------------------------------------
+     Two text levels, and that is a hard limit rather than a preference: at
+     11px WCAG AA needs 4.5:1, and a third grey light enough to read as
+     "quieter than muted" falls below it. --text is content, --muted is
+     secondary text (5.0:1 on the workspace, the darkest light surface).
+     --faint is NOT a text colour — it is for icon strokes, grips and glyph
+     marks, held to the 3:1 non-text threshold of WCAG 1.4.11 (3.2:1 here). */
+  --text: #171a1c;
+  --muted: #63686d;
+  --faint: #82878c;
+
+  /* --- Rules ---------------------------------------------------------------
+     Docked panels separate with a step in surface tone plus a hairline. They
+     do not get drop shadows; only genuinely floating layers do. */
+  --border: #d5d7d5;
+  --border-strong: #bfc2c0;
+  --line: #e6e7e5;
+
+  /* --- Interaction --------------------------------------------------------- */
+  --hover: rgba(23, 26, 28, .05);
+  --active: rgba(23, 26, 28, .09);
+  --selected: #ececea;
+  --focus: #c8352a;
+  --accent: #c8352a;
+  --accent-hover: #ae2c22;
+  --accent-soft: rgba(200, 53, 42, .09);
+  --accent-line: rgba(200, 53, 42, .42);
+  --on-accent: #ffffff;
+
+  /* --- Status --------------------------------------------------------------
+     Distinct from the accent: accent means "selected or actionable", these
+     mean "this went wrong" or "this succeeded". */
+  --danger: #b3261e;
+  --danger-soft: rgba(179, 38, 30, .09);
+  --success: #1f6f4a;
+  --success-soft: rgba(31, 111, 74, .10);
+  --warning: #8a5a00;
+  --warning-soft: rgba(138, 90, 0, .10);
+
+  /* --- Canvas support ------------------------------------------------------ */
+  --dot: #c9cbc8;         /* halftone screen on the workspace */
+  --page-accent: #c8352a;
+  --checker-a: #e7e8e6;   /* transparency checkerboard */
+  --checker-b: #ffffff;
+
+  /* --- Type ----------------------------------------------------------------
+     11px is the floor. CJK glyphs crowd into an unreadable mass below it, and
+     the previous sheet leaned on 10px throughout. */
+  --font-ui: 'Segoe UI', 'Microsoft YaHei', system-ui, sans-serif;
+  --font-display: Georgia, 'Songti SC', 'SimSun', serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --fs-micro: 11px;
+  --fs-label: 12px;
+  --fs-body: 13px;
+  --fs-lead: 15px;
+  --fs-title: 19px;
+  --lh-tight: 1.25;
+  --lh-body: 1.55;
+  --fw-normal: 400;
+  --fw-medium: 500;
+  --fw-semi: 600;
+  --tracking-mark: .14em;   /* wordmark */
+
+  /* --- Radius & elevation --------------------------------------------------
+     Three steps, applied by the size of the thing, so hierarchy stays legible. */
+  --radius-xs: 2px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+
+  --shadow-1: 0 1px 2px rgba(16, 18, 20, .06), 0 1px 1px rgba(16, 18, 20, .04);
+  --shadow-2: 0 6px 18px rgba(16, 18, 20, .10), 0 2px 5px rgba(16, 18, 20, .06);
+  --shadow-3: 0 18px 48px rgba(16, 18, 20, .20), 0 4px 12px rgba(16, 18, 20, .10);
+
+  --speed: 120ms;
+}
+
+:root[data-theme=dark] {
+  color-scheme: dark;
+
+  --workspace: #101214;
+  --toolbar: #191c1f;
+  --panel: #15181b;
+  --surface: #22262a;
+  --dialog: #1a1e21;
+  --overlay: rgba(6, 7, 8, .72);
+
+  --topbar: #0b0d0e;
+  --topbar-text: #f0f2f2;
+  --topbar-muted: rgba(240, 242, 242, .60);
+  --topbar-hover: rgba(255, 255, 255, .10);
+  --topbar-border: rgba(255, 255, 255, .09);
+
+  --overlay-surface: rgba(38, 43, 47, .96);
+  --overlay-text: #f0f2f2;
+  --overlay-muted: rgba(240, 242, 242, .62);
+  --overlay-border: rgba(255, 255, 255, .12);
+  --overlay-hover: rgba(255, 255, 255, .10);
+
+  --text: #e8eaeb;
+  --muted: #a2a8ad;
+  --faint: #8b9196;
+
+  --border: #2e3337;
+  --border-strong: #454b50;
+  --line: #23272b;
+
+  --hover: rgba(232, 234, 235, .06);
+  --active: rgba(232, 234, 235, .11);
+  --selected: #272c30;
+  --focus: #ff7a66;
+  --accent: #ff7a66;
+  --accent-hover: #ff9585;
+  --accent-soft: rgba(255, 122, 102, .14);
+  --accent-line: rgba(255, 122, 102, .45);
+  --on-accent: #1a0d09;
+
+  --danger: #ff8a80;
+  --danger-soft: rgba(255, 138, 128, .14);
+  --success: #6fd3a0;
+  --success-soft: rgba(111, 211, 160, .14);
+  --warning: #e8b457;
+  --warning-soft: rgba(232, 180, 87, .14);
+
+  --dot: #3a4145;
+  --page-accent: #ff7a66;
+  --checker-a: #2a2f33;
+  --checker-b: #191c1f;
+
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, .50);
+  --shadow-2: 0 6px 18px rgba(0, 0, 0, .55), 0 2px 5px rgba(0, 0, 0, .40);
+  --shadow-3: 0 18px 48px rgba(0, 0, 0, .65), 0 4px 12px rgba(0, 0, 0, .45);
+}
+
+/* --- Base ----------------------------------------------------------------- */
+
+body {
+  background: var(--workspace);
+  color: var(--text);
+}
+
+::selection {
+  background: var(--accent-line);
+  color: var(--text);
+}
+
+/* --- Focus ----------------------------------------------------------------
+   One ring for every interactive control. The accessibility suite parses the
+   computed outline, so it must stay `2px solid` — colour and offset may vary,
+   width and style may not. */
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+summary:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* The canvas text field is a document surface: the caret and the in-document
+   selection overlay carry focus, so a box ring would be wrong. */
+.canvas-text-input:focus-visible {
+  outline: 0;
+}
+
+.canvas-text-input.visible-input:focus-visible {
+  outline: 2px solid var(--focus);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+}

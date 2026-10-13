@@ -2,6 +2,7 @@ import type { Id, Project, Rect, Viewport } from '../domain/types';
 import { drawPage, type ImageResources } from './drawScene';
 import { runScreenBounds } from './screenBounds';
 import { affectedMangaIds } from '../bubbles/affectedMangaIds';
+import { bubbleInk } from '../bubbles/inkPaint';
 
 type StaticRun = { kind: 'static'; roots: Id[]; canvas: HTMLCanvasElement | null; bounds: Rect | null };
 type DynamicRun = { kind: 'dynamic'; roots: Id[] };
@@ -35,8 +36,10 @@ function needsReplay(project: Project, id: Id, clips = 0): boolean {
     return layer.children.some((child) => needsReplay(project, child, clips + 1));
   }
   if (layer.type === 'bubble' && (partial(layer.style.fill) || (layer.style.borderWidth > 0 && partial(layer.style.borderColor)))) return true;
+  if (layer.type === 'bubble' && bubbleInk(layer).length) return true;
   if (layer.type === 'text' && partial(layer.text.font.color)) return true;
-  if (layer.type === 'decoration' && partial(layer.spec.color)) return true;
+  if(layer.presentation)return true;
+  if (layer.type === 'decoration' && (layer.spec.kind==='shape' ? partial(layer.spec.style.fill)||partial(layer.spec.style.borderColor) : partial(layer.spec.color))) return true;
   return 'children' in layer && layer.children.some((child) => needsReplay(project, child, clips));
 }
 

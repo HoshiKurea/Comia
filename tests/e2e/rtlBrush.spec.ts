@@ -105,7 +105,7 @@ test('allows keyboard brush activation and editing a completed stroke without re
   await page.getByRole('button', { name: '返回选择', exact: true }).click(); const before = await state(page), b = brushes(before.project)[0];
   const width = page.getByLabel('对象宽', { exact: true }); await width.fill(String(b.spec.width * 1.25)); await width.press('Tab');
   const color = page.getByLabel('颜色', { exact: true }); await color.fill('#cc2200'); const after = await state(page), changed = after.project.layers[b.id] as DecorationLayer;
-  expect(changed.spec.width).toBeCloseTo(b.spec.width * 1.25); expect(changed.spec.color).toBe('#cc2200FF');
+  expect(changed.spec.width).toBeCloseTo(b.spec.width * 1.25); expect(changed.spec.kind!=='shape'?changed.spec.color:undefined).toBe('#cc2200FF');
   expect((changed.spec as { ribbons: unknown }).ribbons).toEqual((b.spec as { ribbons: unknown }).ribbons);
   await (await menuCommand(page,'复制')).click(); await (await menuCommand(page,'粘贴')).click(); const copy = brushes((await state(page)).project); expect(copy).toHaveLength(2); expect(copy[1].spec).toEqual(changed.spec);
 });

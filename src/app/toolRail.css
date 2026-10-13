@@ -1,3 +1,97 @@
-.canvas-work-area{display:flex;flex:1;min-width:0;min-height:0}.canvas-work-area>.canvas-viewport{min-width:0}.tool-rail{flex:0 0 42px;width:42px;background:var(--toolbar);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 3px;box-sizing:border-box}.tool-rail button{display:grid;place-items:center;width:34px;height:34px;border:1px solid transparent;border-radius:4px;background:transparent;color:var(--text);cursor:pointer}.tool-rail button:hover:not(:disabled){background:var(--selected);border-color:var(--border)}.tool-rail button[aria-pressed=true]{background:#34413b;color:#fff;border-color:#34413b;box-shadow:inset 2px 0 0 #f17848}.tool-rail button:focus-visible{outline:2px solid var(--focus);outline-offset:1px}.tool-rail button:disabled{opacity:.45;cursor:default}.canvas-selection-count{color:var(--text);font-weight:500;letter-spacing:0;padding-right:6px}@media(max-width:690px){.tool-rail{flex-basis:38px;width:38px;padding:5px 2px}.tool-rail button{width:32px;height:34px}}
+/* Comia — vertical tool rail beside the canvas. */
 
-.area-selection-options{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--border);background:var(--toolbar);font-size:12px}.area-selection-options label{display:flex;align-items:center;gap:5px}.area-selection-options select{max-width:105px;padding:3px;border:1px solid var(--border);border-radius:3px;background:var(--surface);color:var(--text)}.area-selection-options span{color:var(--muted);font-size:11px}.canvas-viewport.area-selecting{cursor:crosshair}
+.tool-rail {
+  flex: 0 0 44px;
+  width: 44px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 0;
+  box-sizing: border-box;
+  background: var(--toolbar);
+  border-right: 1px solid var(--border);
+}
+
+.tool-rail button {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+  transition: background var(--speed) ease, border-color var(--speed) ease, color var(--speed) ease;
+}
+
+.tool-rail button:hover:not(:disabled) {
+  background: var(--hover);
+  border-color: var(--border);
+}
+
+/* The active tool is filled with ink and carries an accent bar on its inner
+   edge, so it stays identifiable without relying on colour alone. */
+.tool-rail button[aria-pressed=true] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  box-shadow: inset 3px 0 0 var(--on-accent);
+}
+
+.tool-rail button:disabled {
+  opacity: .4;
+  cursor: default;
+}
+
+/* --- Area selection options ----------------------------------------------- */
+
+.area-selection-options {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--toolbar);
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-label);
+}
+
+.area-selection-options label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text);
+}
+
+.area-selection-options select {
+  max-width: 105px;
+  padding: 4px 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.area-selection-options span {
+  color: var(--muted);
+  font-size: var(--fs-micro);
+}
+
+.canvas-viewport.area-selecting {
+  cursor: crosshair;
+}
+
+@media (max-width: 690px) {
+  .tool-rail {
+    flex-basis: 40px;
+    width: 40px;
+    padding: 6px 0;
+  }
+
+  .tool-rail button {
+    width: 32px;
+    height: 34px;
+  }
+}

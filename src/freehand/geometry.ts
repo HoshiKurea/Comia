@@ -9,6 +9,7 @@ import { DRAWING_LIMITS } from './model';
 import type { ShapePath } from '../geometry/types';
 
 export function captureBubbleRing(raw: readonly Point[]): Result<Point[]> {
+  if (raw.some(p => !Number.isFinite(p.x) || !Number.isFinite(p.y))) return fail(problem('drawing/ring', '轮廓坐标必须有限'));
   const ring = raw.filter((p, i) => !i || Math.hypot(p.x - raw[i - 1].x, p.y - raw[i - 1].y) > 1e-6).map(p => ({ x: p.x, y: p.y }));
   if (ring.length > 1 && Math.hypot(ring[0].x - ring.at(-1)!.x, ring[0].y - ring.at(-1)!.y) < 1e-6) ring.pop();
   if (ring.length < 3 || ring.length > DRAWING_LIMITS.strokePoints || ring.some(p => !Number.isFinite(p.x) || !Number.isFinite(p.y))) return fail(problem('drawing/ring', '轮廓需要3～8192个有限点'));

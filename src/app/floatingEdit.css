@@ -1,13 +1,181 @@
-.floating-edit-panel{position:absolute;top:0;left:0;z-index:12;width:560px;max-width:calc(100% - 32px);border:1px solid var(--border);border-top:3px solid #d37852;border-radius:8px;background:var(--panel);color:var(--text);box-shadow:0 12px 38px #0004,0 2px 6px #0002;pointer-events:auto;overflow:auto;font-size:12px}
-.floating-edit-heading{position:sticky;top:0;z-index:1;background:var(--toolbar);border-bottom:1px solid var(--border)}
-.floating-edit-heading .floating-edit-handle{display:flex;align-items:center;gap:9px;width:100%;padding:9px 12px;border:0;border-radius:0;background:transparent;color:var(--text);text-align:left;cursor:grab;touch-action:none}
-.floating-edit-heading .floating-edit-handle:active{cursor:grabbing}.floating-edit-grip{font-size:19px;line-height:1;color:var(--muted)}.floating-edit-move-hint{margin-left:auto;font-size:10px;color:var(--muted);font-weight:400}
-.floating-edit-content{padding:12px}.floating-edit-content>div{position:static;inset:auto;transform:none;width:100%;max-width:none;max-height:none;margin:0;padding:0;box-shadow:none;border:0;border-radius:0;background:transparent;color:var(--text);font-size:12px;white-space:normal}
-.floating-edit-content>.panel-drawing-toolbar,.floating-edit-content>.text-edit-actions,.floating-edit-content>.breakout-editor-controls{display:flex;flex-wrap:wrap;gap:9px;align-items:center}
-.floating-edit-content>.crop-actions{display:flex;flex-direction:column;gap:9px;align-items:stretch}
-.canvas-viewport .floating-edit-content>.crop-actions{width:100%;max-width:none}
-.floating-edit-content button{padding:6px 10px;border:1px solid var(--border);border-radius:4px;background:var(--surface);color:var(--text);font-size:12px}
-.floating-edit-content .text-edit-actions button:last-child,.floating-edit-content .crop-heading button:last-child,.floating-edit-content .mask-edit-heading button:first-of-type,.floating-edit-content .manga-edit-buttons button:first-child,.floating-edit-content .panel-drawing-toolbar button:not(:last-of-type):first-of-type{background:#354d3e;color:#fff;border-color:#354d3e}
-.floating-edit-content input,.floating-edit-content select{background:var(--surface);color:var(--text);border-color:var(--border)}.floating-edit-content small,.floating-edit-content .crop-actions small,.floating-edit-content .crop-heading>span{color:var(--muted)}
-.floating-edit-content .manga-edit-buttons{margin:10px 0 0}.floating-edit-content p{line-height:1.5;margin:0}.floating-edit-content [role=alert]{color:var(--danger,#bd3c36)}
-@media(max-width:580px){.floating-edit-panel{max-width:calc(100% - 32px)}.floating-edit-content{padding:9px}.floating-edit-content .crop-heading{flex-wrap:wrap}.floating-edit-content .crop-heading>span{flex-basis:100%;order:1}}
+/* Comia — floating edit panel.
+   A movable panel that hosts the controls of whichever edit session is active.
+   It is a floating layer, so it takes the raised surface and a real shadow. */
+
+.floating-edit-panel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 12;
+  width: 560px;
+  max-width: calc(100% - 32px);
+  overflow: auto;
+  pointer-events: auto;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-3);
+  font-size: var(--fs-label);
+}
+
+.floating-edit-heading {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--toolbar);
+  border-bottom: 1px solid var(--border);
+}
+
+.floating-edit-heading .floating-edit-handle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+  cursor: grab;
+  touch-action: none;
+  font-size: var(--fs-label);
+  font-weight: var(--fw-medium);
+}
+
+.floating-edit-heading .floating-edit-handle:active {
+  cursor: grabbing;
+}
+
+.floating-edit-grip {
+  font-size: 18px;
+  line-height: 1;
+  color: var(--muted);
+}
+
+.floating-edit-move-hint {
+  margin-left: auto;
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-normal);
+  color: var(--muted);
+}
+
+.floating-edit-content {
+  padding: 12px;
+}
+
+/* Embedded editors render their own chrome when standalone; inside the
+   floating shell they are reduced to plain content. */
+.floating-edit-content>div {
+  position: static;
+  inset: auto;
+  transform: none;
+  width: 100%;
+  max-width: none;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--text);
+  font-size: var(--fs-label);
+  white-space: normal;
+}
+
+.floating-edit-content>.panel-drawing-toolbar,
+.floating-edit-content>.text-edit-actions,
+.floating-edit-content>.breakout-editor-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 9px;
+}
+
+.floating-edit-content>.crop-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 9px;
+}
+
+.canvas-viewport .floating-edit-content>.crop-actions {
+  width: 100%;
+  max-width: none;
+}
+
+.floating-edit-content button {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-label);
+  transition: border-color var(--speed) ease, background var(--speed) ease;
+}
+
+.floating-edit-content button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* The confirming action in each edit session is filled. */
+.floating-edit-content .text-edit-actions button:last-child,
+.floating-edit-content .crop-heading button:last-child,
+.floating-edit-content .mask-edit-heading button:first-of-type,
+.floating-edit-content .manga-edit-buttons button:first-child,
+.floating-edit-content .panel-drawing-toolbar button:not(:last-of-type):first-of-type {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: var(--fw-medium);
+}
+
+.floating-edit-content input,
+.floating-edit-content select {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: var(--radius-sm);
+}
+
+.floating-edit-content small,
+.floating-edit-content .crop-actions small,
+.floating-edit-content .crop-heading>span {
+  color: var(--muted);
+}
+
+.floating-edit-content .manga-edit-buttons {
+  margin: 10px 0 0;
+}
+
+.floating-edit-content p {
+  margin: 0;
+  line-height: var(--lh-body);
+}
+
+.floating-edit-content [role=alert] {
+  color: var(--danger);
+}
+
+@media (max-width: 580px) {
+  .floating-edit-panel {
+    max-width: calc(100% - 32px);
+  }
+
+  .floating-edit-content {
+    padding: 9px;
+  }
+
+  .floating-edit-content .crop-heading {
+    flex-wrap: wrap;
+  }
+
+  .floating-edit-content .crop-heading>span {
+    flex-basis: 100%;
+    order: 1;
+  }
+}

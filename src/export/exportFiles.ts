@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import { styleMemoryEstimate,STYLE_BUFFER_BUDGET } from '../appearance/compositor';
 import type { Id, Project, Result } from '../domain/types';
 import { fail, ok, problem } from '../domain/types';
 import { EXPORT_BUDGET } from '../domain/limits';
@@ -37,7 +38,8 @@ export function exportAvailability(project: Project, pageIds: Id[], format: 'png
   for (const id of pageIds) {
     const page = project.pages[id]; if (!page) return fail(problem('export/page', '页面不存在'));
     const size = rasterSize(page.width, page.height, scale); if (!size.ok) return size;
-    const bytes = size.value.estimatedBytes + (format === 'pdf' ? size.value.width * size.value.height * 4 : 0);
+    const styleBytes=styleMemoryEstimate(project,id,scale);if(styleBytes>STYLE_BUFFER_BUDGET)return fail(problem('export/style-budget','图层效果缓冲超过256MiB预算，请减小页面、效果范围或导出倍率'));
+    const bytes = size.value.estimatedBytes + (format === 'pdf' ? size.value.width * size.value.height * 4 : 0)+styleBytes;
     if (bytes > EXPORT_BUDGET.maxEstimatedBytes) return fail(problem('export/budget', 'PDF绘制与编码画布超出内存预算，请降低倍率或页面尺寸'));
     rasterBytes = Math.max(rasterBytes, bytes);
     for (const root of page.roots) { const result = visit(root); if (!result.ok) return result; }

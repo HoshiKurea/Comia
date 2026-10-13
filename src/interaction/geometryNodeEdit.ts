@@ -1,3 +1,4 @@
+import {geometryPanel,setGeometry} from '../appearance/geometry';
 import { createStore } from 'zustand/vanilla';
 import { fail, ok, problem, type Id, type Point, type Project, type Result, type Viewport } from '../domain/types';
 import { documentStore, getDocument } from '../state/documentStore';
@@ -19,16 +20,16 @@ export const geometryNodeStore=createStore<{target:NodeTarget|null;active:NodeEd
 let unregister:(()=>void)|null=null;
 export const currentNodeEdit=()=>geometryNodeStore.getState().active;
 export function selectGeometryNode(panelId:Id,index:number):void {
-  const p=getDocument().project,l=p.layers[panelId];if(l?.type!=='panel'||index<0||index>=l.geometry.length)return;
+  const p=getDocument().project,l=geometryPanel(p.layers[panelId]);if(!l||index<0||index>=l.geometry.length)return;
   geometryNodeStore.setState({target:{projectId:p.id,pageId:l.pageId,panelId,vertexIndex:index}});
 }
 export function clearGeometryNode():void { cancelNodeEdit();geometryNodeStore.setState({target:null}); }
 export function pickPanelVertex(project:Project,panelId:Id,screen:Point,vp:Viewport,radius=8):number|null {
-  const l=project.layers[panelId];if(l?.type!=='panel')return null;let best=radius,index:number|null=null;
+  const l=geometryPanel(project.layers[panelId]);if(!l)return null;let best=radius,index:number|null=null;
   l.geometry.forEach((v,i)=>{const q=pageToScreen(apply(worldMatrix(project,panelId),v),vp),distance=Math.hypot(q.x-screen.x,q.y-screen.y);if(distance<=best&&(index===null||distance<best)){index=i;best=distance;}});return index;
 }
 export function constrainNodeGeometry(project:Project,id:Id,candidate:Point[],lastLegal?:Point[]):Point[] {
-  const layer=project.layers[id];if(layer.type!=='panel')return [];
+  const layer=geometryPanel(project.layers[id]);if(!layer)return [];
   const fallback=lastLegal??layer.geometry;
   if(layer.geometryMode==='simple'&&!validatePanelGeometry({...layer,geometry:candidate}).ok)return fallback;
   const next=constrainPanelGeometry(project,id,candidate);if(!validatePanelGeometry({...layer,geometry:next}).ok)return fallback;
@@ -52,8 +53,8 @@ export function nodeKeyboard(event:KeyboardEvent):Result<boolean> {
   let target=geometryNodeStore.getState().target;const doc=getDocument(),s=sessionStore.getState();
   if(!target&&s.toolMode==='geometry'&&s.selection.length===1){selectGeometryNode(s.selection[0],0);target=geometryNodeStore.getState().target;}
   if(!target||target.projectId!==doc.project.id||target.pageId!==s.activePageId||s.selection.length!==1||s.selection[0]!==target.panelId)return ok(false);
-  const layer=doc.project.layers[target.panelId],flags=effectiveLayerFlags(doc.project,target.panelId);
-  if(layer?.type!=='panel'||!flags.visible||flags.locked||hasLockedDescendant(doc.project,target.panelId))return ok(false);
+  const layer=geometryPanel(doc.project.layers[target.panelId]),flags=effectiveLayerFlags(doc.project,target.panelId);
+  if(!layer||!flags.visible||flags.locked||hasLockedDescendant(doc.project,target.panelId))return ok(false);
   if(event.altKey&&!event.ctrlKey&&!event.metaKey&&['ArrowLeft','ArrowRight'].includes(event.key)){
     const done=commitNodeEdit();if(!done.ok)return done;selectGeometryNode(target.panelId,(target.vertexIndex+(event.key==='ArrowRight'?1:-1)+layer.geometry.length)%layer.geometry.length);return ok(true);
   }
@@ -61,11 +62,11 @@ export function nodeKeyboard(event:KeyboardEvent):Result<boolean> {
   let active=currentNodeEdit();if(!active){cancelActiveGesture();active={base:doc.project,preview:doc.project,epoch:doc.epoch,stateId:doc.history.stateId,target,delta:{x:0,y:0},held:new Set()};unregister=registerGestureCanceller(cancelNodeEdit);}
   active.held.add(event.key);const step=event.shiftKey?10:1;
   const delta={x:active.delta.x+(event.key==='ArrowLeft'?-step:event.key==='ArrowRight'?step:0),y:active.delta.y+(event.key==='ArrowUp'?-step:event.key==='ArrowDown'?step:0)};
-  const original=active.base.layers[target.panelId];if(original.type!=='panel')return ok(false);const inv=inverse(worldMatrix(active.base,target.panelId));if(!inv.ok){cancelNodeEdit();return inv;}
+  const original=geometryPanel(active.base.layers[target.panelId]);if(!original)return ok(false);const inv=inverse(worldMatrix(active.base,target.panelId));if(!inv.ok){cancelNodeEdit();return inv;}
   const vertex=original.geometry[target.vertexIndex],q={x:vertex.x+inv.value[0]*delta.x+inv.value[2]*delta.y,y:vertex.y+inv.value[1]*delta.x+inv.value[3]*delta.y};
-  const previous=active.preview.layers[target.panelId];
-  const geometry=constrainNodeGeometry(active.base,target.panelId,original.geometry.map((v,i)=>i===target!.vertexIndex?q:v),previous.type==='panel'?previous.geometry:undefined);
-  const preview={...active.base,layers:{...active.base.layers,[target.panelId]:{...original,geometry}}};
+  const previous=geometryPanel(active.preview.layers[target.panelId]);
+  const geometry=constrainNodeGeometry(active.base,target.panelId,original.geometry.map((v,i)=>i===target!.vertexIndex?q:v),previous?.geometry);
+  const edited=structuredClone(active.base.layers[target.panelId]);setGeometry(edited,geometry);const preview={...active.base,layers:{...active.base.layers,[target.panelId]:edited}};
   for(const id of original.children){const child=preview.layers[id];if(child.type==='image'&&child.crop)preview.layers[id]={...child,crop:reflowCrop(geometry,{x:child.width,y:child.height},child.crop)};}
   const accepted={x:geometry[target.vertexIndex].x-vertex.x,y:geometry[target.vertexIndex].y-vertex.y},world=worldMatrix(active.base,target.panelId),actualDelta={x:world[0]*accepted.x+world[2]*accepted.y,y:world[1]*accepted.x+world[3]*accepted.y};
   preserveUnlinkedMasks(active.base,preview);geometryNodeStore.setState({active:{...active,delta:actualDelta,preview}});runtimeStore.setState({previewProject:preview,gestureActive:true});return ok(true);

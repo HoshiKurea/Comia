@@ -1,0 +1,13 @@
+import { it, expect } from 'vitest';
+import { createLayer, createProject } from '../../src/domain/factories';
+import { newId } from '../../src/domain/id';
+import type { BubbleLayer, InkStroke } from '../../src/domain/types';
+import { bubbleInkContains, bubbleInkBounds } from '../../src/bubbles/inkPaint';
+import { captureAutoClosedBubble } from '../../src/bubbles/autoCloseGeometry';
+import { composeBubble } from '../../src/bubbles/composeBubble';
+const stroke=(tool:InkStroke['tool'],opacity=1,color='#FF0000FF'):InkStroke=>({id:newId(),tool,opacity,color,width:10,pressureMode:'fixed',points:[{x:-30,y:40,pressure:.5,dt:0},{x:40,y:40,pressure:.5,dt:1}]});
+function bubble(){const p=createProject(),b=createLayer('bubble',p.pageOrder[0]) as BubbleLayer,r=captureAutoClosedBubble([{x:0,y:0},{x:100,y:0},{x:100,y:80},{x:0,y:80}],[1,0,0,1,0,0]);if(!r.ok)throw Error('capture');b.shape='freehand';b.width=100;b.height=80;b.freehandSource=r.value.source;p.layers[b.id]=b;p.pages[b.pageId].roots.push(b.id);return {p,b};}
+it('partial erasers keep ink selectable, full erasers remove it and later pens restore it',()=>{const {b}=bubble();if(b.freehandSource?.version!==2)throw Error('source');b.freehandSource.ink=[stroke('pen',.5),stroke('eraser',.5,'#00000000')];expect(bubbleInkContains(b,{x:-20,y:40})).toBe(true);b.freehandSource.ink.push(stroke('eraser'));expect(bubbleInkContains(b,{x:-20,y:40})).toBe(false);b.freehandSource.ink.push(stroke('pen'));expect(bubbleInkContains(b,{x:-20,y:40})).toBe(true);});
+it('zero opacity and zero colour alpha ink neither hit nor enlarge the frame',()=>{const {b}=bubble();if(b.freehandSource?.version!==2)throw Error('source');b.freehandSource.ink=[stroke('pen',0),stroke('pen',1,'#FF000000')];expect(bubbleInkContains(b,{x:-20,y:40})).toBe(false);expect(bubbleInkBounds(b)).toBeNull();});
+it('ink bounds and point selection track anisotropic bubble resizing',()=>{const {b}=bubble();if(b.freehandSource?.version!==2)throw Error('source');b.freehandSource.ink=[stroke('pen')];b.width=200;b.height=40;expect(bubbleInkBounds(b)).toEqual({x:-70,y:17.5,width:160,height:5});expect(bubbleInkContains(b,{x:-40,y:20})).toBe(true);expect(bubbleInkContains(b,{x:-40,y:25})).toBe(false);});
+it('adding ink retains the exact composed body geometry and safe area cache',()=>{const {p,b}=bubble(),first=composeBubble(p,b.id);if(!first.ok||b.freehandSource?.version!==2)throw Error('geometry');p.layers[b.id]={...b,freehandSource:{...b.freehandSource,ink:[stroke('pen')]}};const second=composeBubble(p,b.id);expect(second.ok).toBe(true);if(second.ok)expect(second.value).toBe(first.value);});

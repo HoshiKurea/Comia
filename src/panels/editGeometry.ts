@@ -1,3 +1,4 @@
+import {geometryPanel} from '../appearance/geometry';
 import { validatePanelGeometry, polygonContained } from '../geometry/simplePolygon';
 import type { Id, Point, Project } from '../domain/types';
 import { GEOMETRY_POLICY } from '../domain/limits';
@@ -15,7 +16,7 @@ export function moveVertex(poly: Point[], index: number, point: Point, constrain
   });
 }
 export function constrainPanelGeometry(project: Project, id: Id, candidate: Point[]): Point[] {
-  const layer = project.layers[id]; if (layer.type !== 'panel') return [];
+  const layer = geometryPanel(project.layers[id]); if (!layer) return [];
   const result = layer.geometryMode === 'simple' ? (validatePanelGeometry({ ...layer, geometry: candidate }).ok ? candidate : layer.geometry) : constrainCandidate(layer.geometry, candidate, GEOMETRY_POLICY);
   const parent = layer.parentId ? project.layers[layer.parentId] : null;
   if (parent?.type !== 'panel' || polygonContained(parent.geometry, result)) return result;

@@ -1,1 +1,84 @@
-.manga-inspector{border-top:1px solid var(--border);margin-top:14px;padding-top:12px}.manga-inspector h4{margin:0 0 10px;font-size:13px;color:var(--text)}.manga-slider{display:block;margin:10px 0}.manga-slider>span{display:flex;justify-content:space-between;font-size:12px;color:var(--muted)}.manga-slider output{font-variant-numeric:tabular-nums}.manga-slider input{width:100%;accent-color:var(--accent,#52796a)}.manga-geometry-overlay{position:absolute;inset:0;width:100%;height:100%;z-index:7;pointer-events:none;touch-action:none;overflow:visible}.manga-geometry-overlay .manga-hit{pointer-events:all;cursor:grab}.manga-geometry-overlay .manga-hit:focus{outline:none;stroke:#e37448;stroke-width:3}.manga-geometry-outline{fill:none;stroke:#537d73;stroke-width:1;stroke-dasharray:3 3;pointer-events:stroke;cursor:copy}.manga-control-line{stroke:#819b95;stroke-width:1;stroke-dasharray:4 3}.manga-edit-buttons button:first-child{background:var(--accent,#52796a);color:#fff}
+/* Comia — manga bubble inspector and geometry overlay.
+   The overlay strokes are drawn on top of artwork, so they keep fixed guide
+   colours (blue/teal dashes) that stay legible over both light and dark art
+   rather than following the interface theme. */
+
+.manga-inspector {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.manga-inspector h4 {
+  margin: 0 0 10px;
+  font-size: var(--fs-body);
+  font-weight: var(--fw-semi);
+  color: var(--text);
+}
+
+.manga-slider {
+  display: block;
+  margin: 10px 0;
+}
+
+.manga-slider>span {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: var(--fs-label);
+  color: var(--muted);
+}
+
+.manga-slider output {
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+.manga-slider input {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.manga-geometry-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 7;
+  overflow: visible;
+  pointer-events: none;
+  touch-action: none;
+}
+
+.manga-geometry-overlay .manga-hit {
+  pointer-events: all;
+  cursor: grab;
+}
+
+.manga-geometry-overlay .manga-hit:focus {
+  outline: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+
+.manga-geometry-outline {
+  fill: none;
+  stroke: #4fb3a6;
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+  pointer-events: stroke;
+  cursor: copy;
+}
+
+.manga-control-line {
+  stroke: #9bbfb8;
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+}
+
+.manga-edit-buttons button:first-child {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: var(--fw-medium);
+}

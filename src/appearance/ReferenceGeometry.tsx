@@ -1,0 +1,16 @@
+import { useStore } from 'zustand';
+import type { Layer } from '../domain/types';
+import { sessionStore } from '../state/sessionStore';
+import { cancelActiveGesture } from '../interaction/activeGesture';
+import { beginDrawing } from '../panels/drawingController';
+import { breakoutSplitGuard } from '../images/breakoutCommands';
+import { getProject } from '../state/documentStore';
+import { convertPanelToShape,geometryPanel,isRectangle } from './geometry';
+import { propertyTransformStore,setAppearance,setPaint,patchPaint } from './commands';
+import { layerPaint,presentation } from './model';
+import { AppearanceRange,Icon,NumberField,report } from './ReferenceControls';
+export function ReferenceGeometry({layer,disabled}:{layer:Layer;disabled:boolean}){
+  const state=useStore(propertyTransformStore,s=>s),constraint=useStore(sessionStore,s=>s.geometryConstraint),p=geometryPanel(layer),paint=layerPaint(layer);if(!p||!paint)return null;
+  const ids=[layer.id],s=presentation(layer),widths=s.stroke.edgeWidths??[paint.borderWidth,paint.borderWidth,paint.borderWidth,paint.borderWidth],linked=state.target!==layer.id||state.edgesLinked,quad=p.geometry.length===4;
+  return <fieldset className="ref-fieldset" disabled={disabled}><div className="ref-edges"><strong>边框／圆角</strong><button className="ref-icon-button" aria-label="联动四边宽度" aria-pressed={linked} disabled={!quad} onClick={()=>propertyTransformStore.setState({target:layer.id,edgesLinked:!linked})}><Icon kind="chain"/></button>{widths.map((v,i)=><NumberField key={i} label="" aria={`第${i+1}边宽度`} value={v} min={0} max={256} disabled={!quad} onCommit={value=>report(setAppearance(ids,{stroke:{...s.stroke,edgeWidths:linked?[value,value,value,value]:widths.map((w,j)=>i===j?value:w)}}))}/>)}<button className="ref-icon-button" disabled={!quad} aria-label="重置四边宽度" onClick={()=>report(setAppearance(ids,{stroke:{...s.stroke,edgeWidths:undefined}}))}><Icon kind="reset"/></button></div><div className="ref-geometry-radius"><NumberField label="圆角" aria="几何圆角" value={paint.radius} min={0} max={4096} disabled={p.geometryMode==='simple'} onCommit={v=>report(setPaint(ids,{radius:v}))}/><AppearanceRange ids={ids} label="圆角半径" value={paint.radius} max={256} update={(l,v)=>patchPaint(l,{radius:v})}/></div><label className="geometry-constraint"><input type="checkbox" aria-label="平行四边形约束" disabled={!isRectangle(p.geometry)} checked={constraint==='rectangle'&&isRectangle(p.geometry)} onChange={e=>sessionStore.setState({geometryConstraint:e.target.checked?'rectangle':'freeConvex'})}/>平行四边形约束（保持直角）</label><div className="ref-geometry-actions"><button onClick={()=>{cancelActiveGesture();sessionStore.setState({toolMode:'geometry'});}}><Icon kind="geometry"/>编辑顶点与边</button><button disabled={layer.type!=='panel'||p.role!=='leaf'} title={layer.type!=='panel'?'当前已经是普通形状':p.role!=='leaf'?'请先拆为独立分镜':''} onClick={()=>report(convertPanelToShape(layer.id))}><Icon kind="shape"/>转为形状</button><button disabled={layer.type!=='panel'||p.role!=='leaf'} title={layer.type!=='panel'?'轮廓笔刷修正适用于分镜':''} onClick={()=>report(beginDrawing('edit',layer.id))}><Icon kind="draw"/>修正分格轮廓</button><button disabled={layer.type!=='panel'||p.role!=='leaf'||!breakoutSplitGuard(getProject(),layer.id).ok} onClick={()=>report(beginDrawing('line',layer.id))}><Icon kind="cut"/>直线切割工具</button></div></fieldset>;
+}

@@ -8,6 +8,7 @@ import { LOCAL_TARGET, type GeometryTarget, flattenForBoolean } from '../geometr
 import { apply, multiply } from '../geometry/matrix';
 import { unionBounds } from '../geometry/bounds';
 import { MANGA } from '../domain/limits';
+import { bubbleShapeSource } from './inkPaint';
 import { composeBubble, type MangaBubbleGeometry } from './composeBubble';
 import {buildBubbleStrokeBands,hasStrokeBands} from './strokeBands';
 import { buildPressureRibbon } from './strokeRibbon';
@@ -81,7 +82,7 @@ export function clearDialogueCache():void{cache.clear();cacheBytes=0;}
 export function prepareDialogue(project:Project,id:Id,target:GeometryTarget=LOCAL_TARGET,prepared?:ReadonlyMap<Id,MangaBubbleGeometry>):Result<PreparedDialogue>{
   const group=project.layers[id];if(group?.type!=='group'||!group.dialogue)return fail(problem('dialogue/target','目标不是对白组'));
   // Opacity changes paint coefficients, never the partition/boundary geometry.
-  const key=JSON.stringify([id,{...group.dialogue,overlapOpacity:undefined},group.children.map(cid=>{const b=project.layers[cid];return b?.type==='bubble'?[cid,b.visible,b.matrix,b.width,b.height,b.style,b.shape,b.tail,b.handDrawn,b.contour,b.freehandSource,b.edgeStyle,b.children.map(tid=>{const t=project.layers[tid];return t?.type==='bubbleTail'?t:[tid,t?.visible];})]:b;}),target]),entry=cache.get(key);
+  const key=JSON.stringify([id,{...group.dialogue,overlapOpacity:undefined},group.children.map(cid=>{const b=project.layers[cid];return b?.type==='bubble'?[cid,b.visible,b.matrix,b.width,b.height,b.style,b.shape,b.tail,b.handDrawn,b.contour,bubbleShapeSource(b.freehandSource),b.edgeStyle,b.children.map(tid=>{const t=project.layers[tid];return t?.type==='bubbleTail'?t:[tid,t?.visible];})]:b;}),target]),entry=cache.get(key);
   if(entry){cache.delete(key);cache.set(key,entry);return ok(entry.value);}
   const result=prepareUncached(project,id,target,prepared);if(result.ok){const g=result.value,bytes=128*([g.border,g.lines,g.overlapRegion,g.fusionRegion??[],...g.bodyRegions.values(),...g.ownedFills.flatMap(p=>[p.exclusive,p.overlap])].reduce((sum,r)=>sum+regionEdges(r),0));if(bytes<=16*1024*1024){cache.set(key,{value:g,bytes});cacheBytes+=bytes;while(cache.size>32||cacheBytes>16*1024*1024){const entry=cache.entries().next().value!;cacheBytes-=entry[1].bytes;cache.delete(entry[0]);}}}return result;
 }

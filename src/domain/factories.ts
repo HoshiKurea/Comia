@@ -52,7 +52,7 @@ export function createProject(options?: { background?: boolean }): Project {
   const background = createPageBackground(page.id);
   if (options?.background !== false) page.roots.push(background.id);
   return {
-    schemaVersion: 10,
+    schemaVersion: 12,
     nextPanelNumber: 1,
     id: newId(),
     name: '未命名项目',

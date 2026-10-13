@@ -1,11 +1,185 @@
-.panel-drawing-surface{position:absolute;inset:0;width:100%;height:100%;z-index:5;touch-action:none;cursor:crosshair;outline:none}
-.panel-draft-outline{stroke:#3985be;stroke-width:1.5;stroke-dasharray:5 3;stroke-linejoin:round;pointer-events:none}
-.panel-original-outline{fill:none;stroke:#96958b;stroke-width:1;stroke-dasharray:3 5;pointer-events:none}
-.panel-contour-point{fill:#fff;stroke:#3273a6;stroke-width:1.5}
-.panel-cut-piece{fill:#328ad02c;stroke:#328ad0;stroke-width:1;pointer-events:none}
-.panel-drawing-toolbar{position:absolute;z-index:6;left:12px;right:12px;bottom:12px;display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:10px 12px;border-radius:8px;box-shadow:0 4px 20px #0002;background:var(--surface,#fffdf8);color:var(--text,#293b34);font-size:12px;border:1px solid #8b9987}
-.panel-drawing-toolbar input[type=number]{width:70px}.panel-drawing-toolbar button,.panel-drawing-toolbar select{padding:6px;border:1px solid #b9c2b5;border-radius:4px;background:var(--surface,#fffdf8);color:inherit}
-.panel-drawing-toolbar [role=alert]{color:#b43e26;width:100%}
-.panel-tools{padding:10px 14px;border-bottom:1px solid #919f872c}.panel-tools summary{font-size:12px;cursor:pointer;margin-bottom:8px}.panel-tools .button-stack{margin:8px 0}.panel-layout-dialog{width:min(760px,100%);max-height:90vh;overflow:auto;background:var(--surface,#fbfaf6);border-radius:12px;color:var(--text,#293b34)}
-.panel-layout-body{padding:16px 20px;display:grid;grid-template-columns:240px 1fr;gap:20px}.panel-layout-body label{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;margin-bottom:10px}.panel-layout-body input,.panel-layout-body select{width:120px;padding:6px;border-radius:4px;border:1px solid #b9c2b5;background:var(--surface,#fff);color:inherit}.panel-layout-preview{width:100%;height:310px;background:#ecece5;border-radius:6px}.panel-layout-body [role=alert]{font-size:12px;color:#b43e26;line-height:1.5}
-@media(max-width:640px){.panel-layout-body{grid-template-columns:1fr}.panel-layout-preview{height:200px}.panel-drawing-toolbar span{max-width:100%}}
+/* Comia — panel cutting / layout drawing surfaces.
+   Overlay strokes here are guides drawn over artwork, so they keep fixed
+   colours that stay legible against both light and dark page content rather
+   than following the interface theme. */
+
+.panel-drawing-surface {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 5;
+  touch-action: none;
+  cursor: crosshair;
+  outline: none;
+}
+
+.panel-draft-outline {
+  stroke: #3985be;
+  stroke-width: 1.5;
+  stroke-dasharray: 5 3;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.panel-original-outline {
+  fill: none;
+  stroke: #96958b;
+  stroke-width: 1;
+  stroke-dasharray: 3 5;
+  pointer-events: none;
+}
+
+.panel-contour-point {
+  fill: #fff;
+  stroke: #3273a6;
+  stroke-width: 1.5;
+}
+
+.panel-cut-piece {
+  fill: #328ad02c;
+  stroke: #328ad0;
+  stroke-width: 1;
+  pointer-events: none;
+}
+
+/* --- Floating cut toolbar -------------------------------------------------
+   Sits on the artwork, so it takes the dark overlay ground. */
+
+.panel-drawing-toolbar {
+  position: absolute;
+  z-index: 6;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: var(--overlay-surface);
+  border: 1px solid var(--overlay-border);
+  color: var(--overlay-text);
+  box-shadow: var(--shadow-2);
+  font-size: var(--fs-label);
+}
+
+.panel-drawing-toolbar input[type=number] {
+  width: 70px;
+}
+
+.panel-drawing-toolbar button,
+.panel-drawing-toolbar select {
+  padding: 6px 9px;
+  border: 1px solid var(--overlay-border);
+  border-radius: var(--radius-sm);
+  background: var(--overlay-hover);
+  color: var(--overlay-text);
+  font-size: var(--fs-micro);
+}
+
+.panel-drawing-toolbar button:hover {
+  background: rgba(255, 255, 255, .2);
+}
+
+.panel-drawing-toolbar input[type=number] {
+  border: 1px solid var(--overlay-border);
+  border-radius: var(--radius-sm);
+  background: var(--overlay-hover);
+  color: var(--overlay-text);
+  padding: 6px 8px;
+  font-size: var(--fs-micro);
+}
+
+.panel-drawing-toolbar [role=alert] {
+  width: 100%;
+  color: #ffb3a0;
+}
+
+.panel-drawing-toolbar label {
+  color: var(--overlay-muted);
+}
+
+/* --- Tools drawer in the inspector ---------------------------------------- */
+
+.panel-tools {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-tools summary {
+  margin-bottom: 8px;
+  font-size: var(--fs-label);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+}
+
+.panel-tools .button-stack {
+  margin: 8px 0;
+}
+
+/* --- Panel layout dialog -------------------------------------------------- */
+
+.panel-layout-dialog {
+  width: min(760px, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--radius-lg);
+}
+
+.panel-layout-body {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 20px;
+  padding: 16px 20px;
+}
+
+.panel-layout-body label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: var(--fs-label);
+}
+
+.panel-layout-body input,
+.panel-layout-body select {
+  width: 120px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+}
+
+/* Preview ground stands in for the page, so it stays paper-light. */
+.panel-layout-preview {
+  width: 100%;
+  height: 310px;
+  border-radius: var(--radius-sm);
+  background: #ecece5;
+}
+
+.panel-layout-body [role=alert] {
+  font-size: var(--fs-label);
+  line-height: var(--lh-body);
+  color: var(--danger);
+}
+
+@media (max-width: 640px) {
+  .panel-layout-body {
+    grid-template-columns: 1fr;
+  }
+
+  .panel-layout-preview {
+    height: 200px;
+  }
+
+  .panel-drawing-toolbar span {
+    max-width: 100%;
+  }
+}

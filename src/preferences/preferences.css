@@ -1,8 +1,395 @@
-.text-dialog.preferences-dialog{width:min(920px,max(1px,calc(100vw - 32px)));height:min(740px,max(1px,calc(100dvh - 32px)));max-height:max(1px,calc(100dvh - 32px));display:flex;flex-direction:column;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:6px;font-size:12px}.dialog-backdrop:has(.preferences-dialog){padding:16px}
-.preferences-heading{flex:none;display:flex;align-items:center;justify-content:space-between;padding:15px 20px;border-bottom:1px solid var(--border);background:var(--toolbar)}.preferences-heading strong{font-size:17px;font-weight:650}.preferences-heading small{display:block;margin-top:4px;color:var(--muted);font-size:11px}.preferences-heading button{border:0;background:transparent;font-size:21px;color:var(--muted)}
-.preferences-body{display:flex;flex:1;min-height:0}.preferences-nav{width:154px;flex:none;padding:12px 8px;border-right:1px solid var(--border);background:var(--toolbar);display:flex;flex-direction:column;gap:3px}.preferences-nav button{border:0;background:transparent;text-align:left;padding:10px 12px;border-radius:3px;color:var(--muted);font-size:12px}.preferences-nav button.active{color:var(--text);background:var(--surface);box-shadow:inset 3px 0 #dc704b}
-.preferences-content{flex:1;min-width:0;min-height:0;overflow:auto;padding:22px}.preferences-dialog h2{font-size:17px;font-weight:650;margin:0 0 18px}.preferences-dialog h3{font-size:11px;color:var(--muted);margin:0;padding:11px 0 8px;border-bottom:1px solid var(--border)}.preferences-dialog p{margin:0 0 16px;color:var(--muted);font-size:12px;line-height:1.6}.preferences-dialog input,.preferences-dialog select{color:var(--text);background:var(--surface);border:1px solid var(--border);border-radius:3px;padding:7px 9px;min-width:0}.preference-setting{display:flex;align-items:center;justify-content:space-between;gap:20px;max-width:460px;margin-bottom:18px}.preference-setting select{width:170px}.preference-toggle{display:flex;align-items:center;gap:10px;margin:8px 0}.preferences-dialog input[type=checkbox]{accent-color:#dc704b}
-.preferences-dialog button:focus-visible,.preferences-dialog input:focus-visible,.preferences-dialog select:focus-visible{outline:2px solid var(--focus);outline-offset:2px}.preferences-status{flex:none;min-height:30px;padding:6px 20px;color:var(--focus);font-size:11px}.preferences-status button{margin-left:10px}.preferences-footer{flex:none;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;border-top:1px solid var(--border);background:var(--toolbar)}.preferences-footer small{color:var(--muted);font-size:10px}.preferences-footer>div{display:flex;gap:6px}.preferences-dialog button:not([role=tab]):not(.preferences-heading button){color:var(--text);border:1px solid var(--border);background:var(--surface);border-radius:3px;padding:6px 9px;font-size:11px}.preferences-dialog .primary{background:#293b34!important;border-color:#293b34!important;color:#fff!important}
-.preferences-search{display:flex;align-items:center;gap:12px;margin-bottom:12px}.preferences-search input{flex:1;width:100%}.preferences-search span{color:var(--muted);font-size:10px;white-space:nowrap}.shortcut-command{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:10px 0;border-bottom:1px solid var(--border)}.shortcut-command-label{flex:1;min-width:140px}.shortcut-command-label strong{font-weight:500}.shortcut-command-label small{display:block;color:var(--muted);font-size:9px;margin-top:4px}.shortcut-bindings{display:flex;gap:4px;flex-wrap:wrap;min-width:90px;max-width:270px}.shortcut-chip{display:flex;align-items:center;border:1px solid var(--border);border-radius:3px;background:var(--toolbar);padding-left:6px;gap:4px}.shortcut-chip kbd{font-size:10px;font-family:inherit}.preferences-dialog .shortcut-chip button{border:0!important;background:transparent!important;padding:4px!important}.shortcut-actions{display:flex;gap:4px}.shortcut-unbound{color:var(--muted);font-size:11px}.shortcut-capture{width:100%;display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:8px;background:var(--selected);border-radius:4px}.shortcut-capture input{flex:1;min-width:145px}.shortcut-capture span{width:100%;color:var(--focus);font-size:10px}.protected-shortcuts{margin-top:24px}.protected-shortcuts p{margin:9px 0!important}.protected-shortcuts small{color:var(--muted);font-size:10px}.preferences-empty{padding:30px 0}
-.preferences-content{scrollbar-width:none}.preferences-content::-webkit-scrollbar{display:none}
-@media(max-width:719px){.preferences-body{flex-direction:column}.preferences-nav{width:100%;flex-direction:row;border-right:0;border-bottom:1px solid var(--border);padding:6px;overflow:auto;scrollbar-width:none}.preferences-nav button{flex:1;white-space:nowrap;padding:8px}.preferences-content{padding:14px}.preferences-footer{padding:9px}.preferences-footer small{width:100%;order:3}.shortcut-command-label{min-width:100px}.preference-setting{flex-wrap:wrap;gap:10px}.preferences-dialog{border-radius:4px}.dialog-backdrop:has(.preferences-dialog){padding:16px}}
+/* Comia — preferences dialog. */
+
+.text-dialog.preferences-dialog {
+  width: min(920px, max(1px, calc(100vw - 32px)));
+  height: min(740px, max(1px, calc(100dvh - 32px)));
+  max-height: max(1px, calc(100dvh - 32px));
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-label);
+}
+
+.dialog-backdrop:has(.preferences-dialog) {
+  padding: 16px;
+}
+
+.preferences-heading {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 15px 20px;
+  background: var(--toolbar);
+  border-bottom: 1px solid var(--border);
+}
+
+.preferences-heading strong {
+  font-size: var(--fs-title);
+  font-weight: var(--fw-semi);
+}
+
+.preferences-heading small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: var(--fs-micro);
+}
+
+.preferences-heading button {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 20px;
+  border-radius: var(--radius-sm);
+  padding: 0 4px;
+}
+
+.preferences-heading button:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.preferences-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.preferences-nav {
+  width: 154px;
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 8px;
+  background: var(--toolbar);
+  border-right: 1px solid var(--border);
+}
+
+.preferences-nav button {
+  border: 0;
+  background: transparent;
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  color: var(--muted);
+  font-size: var(--fs-label);
+  transition: background var(--speed) ease, color var(--speed) ease;
+}
+
+.preferences-nav button:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.preferences-nav button.active {
+  color: var(--text);
+  background: var(--surface);
+  box-shadow: inset 3px 0 var(--accent);
+  font-weight: var(--fw-medium);
+}
+
+.preferences-content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  padding: 22px;
+  scrollbar-width: none;
+}
+
+.preferences-content::-webkit-scrollbar {
+  display: none;
+}
+
+.preferences-dialog h2 {
+  margin: 0 0 18px;
+  font-size: var(--fs-title);
+  font-weight: var(--fw-semi);
+}
+
+.preferences-dialog h3 {
+  margin: 0;
+  padding: 11px 0 8px;
+  border-bottom: 1px solid var(--border);
+  font-size: var(--fs-micro);
+  font-weight: var(--fw-semi);
+  color: var(--muted);
+}
+
+.preferences-dialog p {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: var(--fs-label);
+  line-height: var(--lh-body);
+}
+
+.preferences-dialog input,
+.preferences-dialog select {
+  min-width: 0;
+  padding: 7px 9px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.preference-setting {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  max-width: 460px;
+  margin-bottom: 18px;
+}
+
+.preference-setting select {
+  width: 170px;
+}
+
+.preference-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+}
+
+.preferences-dialog input[type=checkbox] {
+  accent-color: var(--accent);
+}
+
+/* Secondary buttons; the primary is filled below. */
+.preferences-dialog button:not([role=tab]):not(.preferences-heading button) {
+  padding: 6px 10px;
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-micro);
+  transition: border-color var(--speed) ease, color var(--speed) ease;
+}
+
+.preferences-dialog button:not([role=tab]):not(.preferences-heading button):hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.preferences-dialog .primary {
+  background: var(--accent) !important;
+  border-color: var(--accent) !important;
+  color: var(--on-accent) !important;
+  font-weight: var(--fw-medium);
+}
+
+.preferences-status {
+  flex: none;
+  min-height: 30px;
+  padding: 6px 20px;
+  color: var(--accent);
+  font-size: var(--fs-micro);
+}
+
+.preferences-status button {
+  margin-left: 10px;
+}
+
+.preferences-footer {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  background: var(--toolbar);
+  border-top: 1px solid var(--border);
+}
+
+.preferences-footer small {
+  color: var(--muted);
+  font-size: var(--fs-micro);
+}
+
+.preferences-footer>div {
+  display: flex;
+  gap: 6px;
+}
+
+/* --- Shortcut editor ------------------------------------------------------ */
+
+.preferences-search {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.preferences-search input {
+  flex: 1;
+  width: 100%;
+}
+
+.preferences-search span {
+  color: var(--muted);
+  font-size: var(--fs-micro);
+  white-space: nowrap;
+}
+
+.shortcut-command {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.shortcut-command-label {
+  flex: 1;
+  min-width: 140px;
+}
+
+.shortcut-command-label strong {
+  font-weight: var(--fw-medium);
+}
+
+.shortcut-command-label small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: var(--fs-micro);
+}
+
+.shortcut-bindings {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  min-width: 90px;
+  max-width: 270px;
+}
+
+.shortcut-chip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--toolbar);
+}
+
+.shortcut-chip kbd {
+  font-family: var(--font-ui);
+  font-size: var(--fs-micro);
+}
+
+.preferences-dialog .shortcut-chip button {
+  border: 0 !important;
+  background: transparent !important;
+  padding: 4px !important;
+}
+
+.shortcut-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.shortcut-unbound {
+  color: var(--muted);
+  font-size: var(--fs-micro);
+}
+
+/* Active capture state: the row is tinted rather than outlined, so the focused
+   key field inside stays the loudest thing on screen. */
+.shortcut-capture {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  box-shadow: inset 2px 0 var(--accent);
+}
+
+.shortcut-capture input {
+  flex: 1;
+  min-width: 145px;
+}
+
+.shortcut-capture span {
+  width: 100%;
+  color: var(--accent);
+  font-size: var(--fs-micro);
+}
+
+.protected-shortcuts {
+  margin-top: 24px;
+}
+
+.protected-shortcuts p {
+  margin: 9px 0 !important;
+}
+
+.protected-shortcuts small {
+  color: var(--muted);
+  font-size: var(--fs-micro);
+}
+
+.preferences-empty {
+  padding: 30px 0;
+}
+
+@media (max-width: 719px) {
+  .preferences-body {
+    flex-direction: column;
+  }
+
+  .preferences-nav {
+    width: 100%;
+    flex-direction: row;
+    overflow: auto;
+    padding: 6px;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+    scrollbar-width: none;
+  }
+
+  .preferences-nav button {
+    flex: 1;
+    white-space: nowrap;
+    padding: 8px;
+  }
+
+  .preferences-content {
+    padding: 14px;
+  }
+
+  .preferences-footer {
+    padding: 9px;
+  }
+
+  .preferences-footer small {
+    width: 100%;
+    order: 3;
+  }
+
+  .shortcut-command-label {
+    min-width: 100px;
+  }
+
+  .preference-setting {
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  .preferences-dialog {
+    border-radius: var(--radius-sm);
+  }
+}

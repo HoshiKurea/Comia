@@ -8,7 +8,9 @@ import { migrationId } from '../domain/id';
 import { completeExtensionProject } from '../domain/extensionDefaults';
 /** Validate the old convex contract before upgrading; never mutates caller data. */
 export function migrateProject(input: unknown): Result<Project> {
-  const checked = validateProject(input); if (!checked.ok || checked.value.schemaVersion === 10) return checked;
+  const checked = validateProject(input); if (!checked.ok || checked.value.schemaVersion === 12) return checked;
+  if (checked.value.schemaVersion === 11) return upgradeTo12(checked.value);
+  if (checked.value.schemaVersion === 10) return upgradeTo11(checked.value);
   if (checked.value.schemaVersion === 9) return upgradeTo10(checked.value);
   if (checked.value.schemaVersion === 8) return upgradeTo9(checked.value);
   if (checked.value.schemaVersion === 7) return upgradeTo8(checked.value);
@@ -98,5 +100,17 @@ function upgradeTo9(source: Project): Result<Project> {
 }
 
 function upgradeTo10(source: Project): Result<Project> {
-  const project = structuredClone(source); project.schemaVersion = 10; return validateProject(project);
+  const project = structuredClone(source); project.schemaVersion = 10; const checked = validateProject(project); return checked.ok ? upgradeTo11(checked.value) : checked;
 }
+
+function upgradeTo11(source: Project): Result<Project> {
+  const project = structuredClone(source); project.schemaVersion = 11;
+  const upgrade = (layer: { type: string; freehandSource?: import('../domain/types').FreehandBubbleSource }) => {
+    if (layer.type === 'bubble' && layer.freehandSource?.version === 1) layer.freehandSource = { ...layer.freehandSource, version: 2, ink: [] };
+  };
+  Object.values(project.layers).forEach(upgrade);
+  for (const template of Object.values(project.templates)) if ('recipe' in template && template.recipe.kind === 'scene') Object.values(template.recipe.nodes).forEach(upgrade);
+  const checked=validateProject(project); return checked.ok ? upgradeTo12(checked.value) : checked;
+}
+
+function upgradeTo12(source: Project): Result<Project> { const project=structuredClone(source); project.schemaVersion=12; return validateProject(project); }

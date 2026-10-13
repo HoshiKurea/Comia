@@ -5,14 +5,16 @@ import { mangaEditStore, queueMangaPatch } from './mangaEditController';
 import { applyHandDrawnPreset, beginBubbleShapeEdit, editableContour, regenerateBubbleContour, resetBubbleShape, setEditedBubbleShape, updateBubbleContour, updateHandDrawn } from './shapeController';
 import { MangaNumber, reportManga } from './MangaFields';
 import { RangeNumberValue } from '../ui/RangeNumberField';
-import { openDrawingWindow } from '../freehand/session';
+import { activateHandBubbleEdit } from './brushController';
+import { execute } from '../history/commandBus';
+import { sessionStore } from '../state/sessionStore';
 
 export function BubbleShapeInspector({bubble}:{bubble:BubbleLayer}){
   const active=useStore(mangaEditStore,s=>s.active?.id===bubble.id?s.active:null),current=active?.preview.layers[bubble.id];
   const b=current?.type==='bubble'?current:bubble,hand=b.handDrawn;
   const run=(fn:()=>Result<unknown>)=>{const began=beginBubbleShapeEdit(b.id);if(!began.ok){reportManga(began);return;}reportManga(fn());};
   const contour=active?(b.contour?ok(b.contour):editableContour(b)):null;
-  if(b.shape==='freehand')return <section className="manga-inspector" aria-label="自由绘画气泡属性"><h4>自由绘画轮廓</h4><button disabled={!!active} onClick={()=>reportManga(openDrawingWindow(b.id))}>在绘画窗口编辑</button><p className="hint">用笔刷补画或擦除修形。边框与内外描边可在下方属性中调整；文字和尾巴继续独立编辑。</p></section>;
+  if(b.shape==='freehand')return <section className="manga-inspector" aria-label="手绘轮廓气泡属性"><h4>手绘轮廓</h4><div className="button-stack">{([['ink','画细节'],['erase-ink','擦细节'],['add-shape','补画'],['subtract-shape','擦形']] as const).map(([mode,label])=><button key={mode} disabled={!!active} onClick={()=>reportManga(activateHandBubbleEdit({targetId:b.id,mode}))}>{label}</button>)}</div><MangaNumber label="边缘抖动" value={b.edgeStyle?.wobble??0} min={0} max={.03} step={.001} apply={wobble=>execute({label:'调整手绘气泡边缘',context:{pageId:b.pageId,selection:sessionStore.getState().selection},mutate(p){const layer=p.layers[b.id];if(layer.type==='bubble')layer.edgeStyle={recipe:'normal-offset-v1',seed:layer.edgeStyle?.seed??42,wobble};}})}/><p className="hint">画／擦细节只改笔迹，补画／擦形才改变外轮廓。每笔松手保存，V返回移动；内外描边在下方调整。</p></section>;
   return <section className="manga-inspector" aria-label="手绘气泡属性"><h4>轮廓与笔触</h4>
     <div className="button-stack"><button onClick={()=>run(()=>applyHandDrawnPreset('soft'))}>柔和手绘</button><button onClick={()=>run(()=>applyHandDrawnPreset('rough'))}>粗糙速写</button><button onClick={()=>reportManga(beginBubbleShapeEdit(b.id))}>编辑气泡轮廓</button></div>
     <label className="field"><span>情绪形状</span><select aria-label="情绪气泡形状" value={b.shape} onChange={e=>run(()=>setEditedBubbleShape(e.target.value as BubbleLayer['shape']))}>{[['roundRect','圆角对白'],['rect','方框旁白'],['circle','圆形'],['cloud','内心云朵'],['spiky','尖刺喊叫'],['handOval','不规则卵形'],['handPolygon','不规则多边形'],['wave','波浪紧张']].map(([value,label])=><option key={value} value={value}>{label}</option>)}</select></label>

@@ -1,6 +1,7 @@
 import type { DecorationSpec, Point } from '../domain/types';
 import type { ShapePath } from '../geometry/types';
 import { polyBounds } from '../geometry/polygon';
+import { buildRoundedPolygon } from '../geometry/roundedPolygon';
 
 function random(seed: number): () => number {
   let state = seed >>> 0;
@@ -28,6 +29,7 @@ function line(a: Point, b: Point): ShapePath {
 
 export function buildDecoration(spec: DecorationSpec): ShapePath[] {
   if (spec.kind === 'sfx') return [];
+  if (spec.kind === 'shape') return [buildRoundedPolygon(spec.geometry, spec.style.borderRadius)];
   if (spec.kind === 'speed-brush') return spec.ribbons.map(ring => {
     const points = ring.map(p => ({ x: p.x * spec.width, y: p.y * spec.height }));
     return { ops: [{ op: 'M', p: points[0] }, ...points.slice(1).map(p => ({ op: 'L' as const, p })), { op: 'Z' }], bounds: polyBounds(points) };

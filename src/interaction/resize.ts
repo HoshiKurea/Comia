@@ -49,7 +49,7 @@ export function resizeProject(start: Project, id: Id, next: Rect): Result<Projec
   const kx = next.width / box.width, ky = next.height / box.height;
   const affine = multiply(multiply(translation(next.x, next.y), scaling(kx, ky)), translation(-box.x, -box.y));
   const project = { ...start, layers: { ...start.layers } }, target = structuredClone(layer); project.layers[id] = target;
-  if (target.type === 'group' || target.type === 'image' || target.type === 'bubbleTail') target.matrix = multiply(layer.matrix, affine);
+  if (target.type === 'group' || target.type === 'image' || target.type === 'bubbleTail' || target.type==='decoration'&&target.spec.kind==='shape') target.matrix = multiply(layer.matrix, affine);
   else if (target.type === 'panel') {
     const visit = (panelId: Id) => {
       const original = start.layers[panelId]; if (original.type !== 'panel') return;
@@ -66,10 +66,13 @@ export function resizeProject(start: Project, id: Id, next: Rect): Result<Projec
     const resized = project.layers[id];
     if (parent?.type === 'panel' && resized.type === 'panel' && !polygonContained(parent.geometry, resized.geometry)) return fail(problem('resize/parent', '子分镜必须保持在父分镜轮廓内'));
   } else if (target.type === 'bubble') {
-    target.matrix = multiply(layer.matrix, translation(next.x, next.y)); target.width = next.width; target.height = next.height;
+    // Freehand bounds may include an off-origin contour or detail ink. Scale
+    // the author basis, not the visual bounding-box dimensions themselves.
+    target.matrix = multiply(layer.matrix, translation(next.x - box.x * kx, next.y - box.y * ky)); target.width = target.width * kx; target.height = target.height * ky;
+    if (target.width < 16 || target.height < 16 || target.width > 16384 || target.height > 16384) return fail(problem('resize/range', '气泡宽高必须在16～16384像素之间'));
     if (layer.type === 'bubble' && layer.tail) {
       let total: number;
-      try { total = perimeter(flattenPath(bubbleBodyPath(target.shape, target.width, target.height, target.style))).total; }
+      try { total = perimeter(flattenPath(bubbleBodyPath(target.shape, target.width, target.height, target.style, target))).total; }
       catch { return fail(problem('resize/bubble-budget', '气泡轮廓超出几何预算，尺寸未修改')); }
       target.tail = { ...layer.tail, tip: { x: layer.tail.tip.x * kx, y: layer.tail.tip.y * ky }, baseWidth: Math.max(4, Math.min(128, total * .2, layer.tail.baseWidth * Math.min(kx, ky))) };
     }

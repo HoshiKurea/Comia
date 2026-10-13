@@ -24,7 +24,7 @@ function upgraded(input = fixture()): Project { const result = migrateProject(in
 describe('manga format6 migration and ownership', () => {
   it('keeps all original IDs, transforms, text, numbering and input immutable', () => {
     const old = fixture(), before = structuredClone(old), next = upgraded(old);
-    expect(old).toEqual(before); expect(next.schemaVersion).toBe(10); expect(next.nextPanelNumber).toBe(old.nextPanelNumber);
+    expect(old).toEqual(before); expect(next.schemaVersion).toBe(12); expect(next.nextPanelNumber).toBe(old.nextPanelNumber);
     expect(next.pages).toEqual(old.pages); expect(next.assets).toEqual(old.assets);
     const original = Object.values(old.layers).find(l => l.type === 'bubble') as BubbleLayer;
     const bubble = next.layers[original.id] as BubbleLayer;

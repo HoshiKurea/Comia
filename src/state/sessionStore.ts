@@ -29,7 +29,7 @@ export interface SessionStoreState {
   snap16: boolean;
   showPanelNumbers: boolean;
   spacePan: boolean;
-  geometryConstraint: 'freeConvex' | 'parallelogram';
+  geometryConstraint: 'freeConvex' | 'parallelogram' | 'rectangle';
   toolMode: ToolMode;
   areaSelectionOptions: AreaSelectionOptions;
   panelCutGap: number;

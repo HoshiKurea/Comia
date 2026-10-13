@@ -1,3 +1,5 @@
+import { effectPadding } from '../appearance/effects';
+import { maxSingularValue } from '../geometry/flattenForBoolean';
 import type { Id, Point, Project, Rect, Viewport } from '../domain/types';
 import { apply, worldMatrix } from '../geometry/matrix';
 import { composeBubble } from '../bubbles/composeBubble';
@@ -9,6 +11,8 @@ import { tailVisualBounds } from '../bubbles/tailPaint';
 import { prepareDialogue } from '../bubbles/dialogueGeometry';
 import { effectGeometryFor } from '../text/effectBounds';
 import { bubbleFrameBounds } from '../text/bubbleFrameBounds';
+import { bubbleInkBounds } from '../bubbles/inkPaint';
+import { layerPaint } from '../appearance/model';
 
 function union(a: Rect | null, b: Rect | null): Rect | null {
   if (!a) return b;
@@ -42,7 +46,7 @@ function pathPoints(path: ShapePath): Point[] {
 export function layerScreenBounds(project: Project, id: Id, viewport: Viewport): Rect | null {
   const layer = project.layers[id];
   if (!layer || !layer.visible) return null;
-  if (layer.type === 'group') {let box=layer.children.reduce<Rect | null>((box, child) => union(box, layerScreenBounds(project, child, viewport)), null);if(layer.dialogue){const prepared=prepareDialogue(project,id);if(prepared.ok){const world=worldMatrix(project,id);box=union(box,pointsBounds(rectPoints(prepared.value.bounds).map(p=>{const q=apply(world,p);return{x:viewport.pan.x+viewport.zoom*q.x,y:viewport.pan.y+viewport.zoom*q.y};})));}}return box;}
+  if (layer.type === 'group') {let box=layer.children.reduce<Rect | null>((box, child) => union(box, layerScreenBounds(project, child, viewport)), null);if(layer.dialogue){const prepared=prepareDialogue(project,id);if(prepared.ok){const world=worldMatrix(project,id);box=union(box,pointsBounds(rectPoints(prepared.value.bounds).map(p=>{const q=apply(world,p);return{x:viewport.pan.x+viewport.zoom*q.x,y:viewport.pan.y+viewport.zoom*q.y};})));}}return expandStyle(project,id,box,viewport);}
   const world = worldMatrix(project, id);
   const screen = (p: Point): Point => {
     const page = apply(world, p);
@@ -56,7 +60,8 @@ export function layerScreenBounds(project: Project, id: Id, viewport: Viewport):
   else if (layer.type === 'text') points = rectPoints(effectGeometryFor(layer)?.bounds??bubbleFrameBounds(project,id)?.box??layer.box);
   else if (layer.type === 'decoration') {
     const spec = layer.spec;
-    if (spec.kind === 'sfx') {
+    if(spec.kind==='shape'){points=spec.geometry;stroke=spec.style.borderWidth;}
+    else if (spec.kind === 'sfx') {
       const canvas = document.createElement('canvas'), ctx = canvas.getContext('2d');
       if (ctx) {
         applyCanvasTextPolicy(ctx);
@@ -76,6 +81,7 @@ export function layerScreenBounds(project: Project, id: Id, viewport: Viewport):
     const geometry = composeBubble(project,id);
     points = geometry.ok ? rectPoints(geometry.value.bounds) : rectPoints({ x: 0, y: 0, width: layer.width, height: layer.height });
     if (geometry.ok && geometry.value.tailLine) points.push(...pathPoints(geometry.value.tailLine));
+    const ink=bubbleInkBounds(layer);if(ink)points.push(...rectPoints(ink));
     stroke = geometry.ok&&geometry.value.borderRegion!==undefined?0:layer.style.borderWidth;
   }
   else if (layer.type === 'bubbleTail') {
@@ -95,7 +101,11 @@ export function layerScreenBounds(project: Project, id: Id, viewport: Viewport):
       if ('children' in child) child.children.forEach(collect);
     }; layer.children.forEach(collect);
   }
-  return box;
+  return expandStyle(project,id,box,viewport);
+}
+
+function expandStyle(p:Project,id:Id,b:Rect|null,v:Viewport):Rect|null {
+  const l=p.layers[id],s=l.presentation;if(!b||!s)return b;const scale=maxSingularValue(worldMatrix(p,id))*v.zoom,w=Math.max(layerPaint(l)?.borderWidth??0,...(s.stroke.edgeWidths??[])),stroke=w*(s.stroke.alignment==='center'?.5:1)*Math.max(1,s.stroke.join==='miter'?s.stroke.miterLimit:1),pad=(effectPadding(s.effects)+stroke)*scale;return{x:b.x-pad,y:b.y-pad,width:b.width+2*pad,height:b.height+2*pad};
 }
 
 export function runScreenBounds(project: Project, roots: Id[], viewport: Viewport, size: { width: number; height: number }): Rect | null {

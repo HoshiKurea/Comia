@@ -1,8 +1,319 @@
-.text-dialog.drawing-window{width:min(1240px,calc(100vw - 36px));max-height:calc(100vh - 36px);border-radius:8px;background:var(--surface,#fbfaf6);color:var(--text,#26312d);overflow:visible}
-.drawing-shell{height:min(790px,calc(100vh - 36px));display:flex;flex-direction:column;position:relative;background:inherit;border-radius:8px;box-shadow:0 24px 70px #0005}
-.drawing-heading{height:44px;display:flex;align-items:center;padding:0 16px;gap:16px;cursor:move;touch-action:none;flex-shrink:0;border-bottom:1px solid var(--border,#d5d7d0)}.drawing-heading span{font-size:12px;opacity:.65}.drawing-heading button{margin-left:auto;font-size:24px;background:transparent;border:0;color:inherit}
-.drawing-options{display:flex;align-items:center;gap:6px;min-height:50px;flex-shrink:0;padding:8px 12px;flex-wrap:wrap;border-bottom:1px solid var(--border,#d5d7d0)}.drawing-options button,.drawing-footer button,.drawing-properties button,.drawing-discard button{border:1px solid var(--border,#d5d7d0);background:var(--surface,#fff);color:inherit;border-radius:4px;padding:6px 10px;font-size:12px}.drawing-options button[aria-pressed=true]{background:#2b3e37;color:#fff}.drawing-divider{height:20px;border-left:1px solid #aaa;margin:0 5px}.drawing-options label{font-size:12px;margin-left:auto}
-.drawing-content{display:grid;grid-template-columns:150px minmax(180px,1fr) 240px;flex:1;min-height:0}.drawing-object-list,.drawing-properties{padding:12px;overflow:auto;scrollbar-width:thin;font-size:12px}.drawing-object-list{border-right:1px solid var(--border,#d5d7d0)}.drawing-object-list>div{display:flex;margin-top:8px}.drawing-object-list button{padding:7px 5px;border:0;color:inherit;background:transparent;min-width:0}.drawing-object-list>div button:first-child{flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.drawing-object-list button.active{background:#bd582922;box-shadow:inset 2px 0 #c5582e}.drawing-properties{border-left:1px solid var(--border,#d5d7d0)}.drawing-properties>strong{display:block;margin:8px 0 12px}.drawing-field{display:flex;align-items:center;justify-content:space-between;gap:5px;margin:7px 0}.drawing-field input{min-width:0;width:95px;border:1px solid var(--border,#d5d7d0);border-radius:4px;padding:5px;background:var(--surface,#fff);color:inherit;text-align:right}.drawing-color{margin:10px 0}.drawing-color>label{display:flex;justify-content:space-between;align-items:center}.drawing-color input[type=color]{width:42px;height:27px;border:1px solid #ccc;padding:2px;background:transparent}.drawing-properties section{border-top:1px solid #aaa5;margin-top:12px;padding-top:12px}.drawing-properties p,.drawing-object-list p{font-size:11px;line-height:1.6;opacity:.7;margin:12px 0}
-.drawing-board{position:relative;overflow:hidden;min-height:200px;touch-action:none;background-color:#fff;background-image:conic-gradient(#e1e3e1 25%,transparent 0 50%,#e1e3e1 0 75%,transparent 0);background-size:20px 20px}.drawing-board canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}.drawing-board-empty{position:absolute;inset:0;display:grid;place-items:center;font-size:13px;pointer-events:none;color:#63716a}
-.drawing-footer{min-height:58px;flex-shrink:0;display:flex;align-items:center;gap:10px;padding:10px 14px;border-top:1px solid var(--border,#d5d7d0)}.drawing-footer>div{flex:1;font-size:12px;line-height:1.5}.drawing-footer .primary{background:#2b3e37;color:white}.drawing-footer button:disabled,.drawing-options button:disabled{opacity:.4}.drawing-discard{position:absolute;inset:0;background:#20382eee;color:white;display:flex;align-items:center;justify-content:center;gap:15px;border-radius:8px}.drawing-discard p{margin:0;color:inherit}
-@media(max-width:900px){.drawing-content{grid-template-columns:100px minmax(160px,1fr) 190px}.drawing-properties{padding:8px}.drawing-field input{width:70px}.drawing-options{gap:4px;padding:6px}.drawing-options button{padding:5px}}
+/* Comia — standalone drawing window (freehand material creation). */
+
+.text-dialog.drawing-window {
+  width: min(1240px, calc(100vw - 36px));
+  max-height: calc(100vh - 36px);
+  overflow: visible;
+  background: var(--surface);
+  color: var(--text);
+  border-radius: var(--radius-md);
+}
+
+.drawing-shell {
+  height: min(790px, calc(100vh - 36px));
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  background: inherit;
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-3);
+}
+
+.drawing-heading {
+  height: 44px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-shrink: 0;
+  padding: 0 16px;
+  cursor: move;
+  touch-action: none;
+  border-bottom: 1px solid var(--border);
+  font-weight: var(--fw-medium);
+}
+
+.drawing-heading span {
+  font-size: var(--fs-label);
+  color: var(--muted);
+  font-weight: var(--fw-normal);
+}
+
+.drawing-heading button {
+  margin-left: auto;
+  font-size: 22px;
+  background: transparent;
+  border: 0;
+  color: var(--muted);
+  border-radius: var(--radius-sm);
+  padding: 0 4px;
+}
+
+.drawing-heading button:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.drawing-options {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+  min-height: 50px;
+  padding: 8px 12px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+}
+
+.drawing-options button,
+.drawing-footer button,
+.drawing-properties button,
+.drawing-discard button {
+  padding: 6px 10px;
+  font-size: var(--fs-label);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  transition: border-color var(--speed) ease, background var(--speed) ease;
+}
+
+.drawing-options button:hover:not(:disabled),
+.drawing-properties button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.drawing-options button[aria-pressed=true] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+.drawing-divider {
+  height: 20px;
+  border-left: 1px solid var(--border-strong);
+  margin: 0 5px;
+}
+
+.drawing-options label {
+  font-size: var(--fs-label);
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.drawing-content {
+  display: grid;
+  grid-template-columns: 150px minmax(180px, 1fr) 240px;
+  flex: 1;
+  min-height: 0;
+}
+
+.drawing-object-list,
+.drawing-properties {
+  padding: 12px;
+  overflow: auto;
+  scrollbar-width: thin;
+  font-size: var(--fs-label);
+}
+
+.drawing-object-list {
+  border-right: 1px solid var(--border);
+}
+
+.drawing-object-list>div {
+  display: flex;
+  margin-top: 8px;
+}
+
+.drawing-object-list button {
+  min-width: 0;
+  padding: 7px 5px;
+  border: 0;
+  background: transparent;
+  color: inherit;
+}
+
+.drawing-object-list>div button:first-child {
+  flex: 1;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.drawing-object-list button.active {
+  background: var(--accent-soft);
+  color: var(--accent);
+  box-shadow: inset 2px 0 var(--accent);
+}
+
+.drawing-properties {
+  border-left: 1px solid var(--border);
+}
+
+.drawing-properties>strong {
+  display: block;
+  margin: 8px 0 12px;
+  font-weight: var(--fw-semi);
+}
+
+.drawing-field {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 5px;
+  margin: 7px 0;
+  color: var(--muted);
+}
+
+.drawing-field input {
+  min-width: 0;
+  width: 95px;
+  padding: 5px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+}
+
+.drawing-color {
+  margin: 10px 0;
+}
+
+.drawing-color>label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  color: var(--muted);
+}
+
+.drawing-color input[type=color] {
+  width: 42px;
+  height: 27px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: transparent;
+}
+
+.drawing-properties section {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+
+.drawing-properties p,
+.drawing-object-list p {
+  margin: 12px 0;
+  font-size: var(--fs-micro);
+  line-height: var(--lh-body);
+  color: var(--muted);
+}
+
+/* The board is a document surface: it stays white in both themes so the
+   artwork is judged against the same ground it will be placed on. */
+.drawing-board {
+  position: relative;
+  overflow: hidden;
+  min-height: 200px;
+  touch-action: none;
+  background-color: #fff;
+  background-image: conic-gradient(#e1e3e1 25%, transparent 0 50%, #e1e3e1 0 75%, transparent 0);
+  background-size: 20px 20px;
+}
+
+.drawing-board canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.drawing-board-empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: var(--fs-body);
+  color: #63716a;
+  pointer-events: none;
+}
+
+.drawing-footer {
+  min-height: 58px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-top: 1px solid var(--border);
+}
+
+.drawing-footer>div {
+  flex: 1;
+  font-size: var(--fs-label);
+  line-height: var(--lh-body);
+  color: var(--muted);
+}
+
+.drawing-footer .primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+  font-weight: var(--fw-medium);
+}
+
+.drawing-footer button:disabled,
+.drawing-options button:disabled {
+  opacity: .4;
+}
+
+/* Destructive confirm laid over the whole window. */
+.drawing-discard {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 15px;
+  border-radius: var(--radius-md);
+  background: var(--overlay-surface);
+  color: var(--overlay-text);
+}
+
+.drawing-discard p {
+  margin: 0;
+  color: inherit;
+}
+
+.drawing-discard button {
+  background: var(--overlay-hover);
+  border-color: var(--overlay-border);
+  color: var(--overlay-text);
+}
+
+@media (max-width: 900px) {
+  .drawing-content {
+    grid-template-columns: 100px minmax(160px, 1fr) 190px;
+  }
+
+  .drawing-properties {
+    padding: 8px;
+  }
+
+  .drawing-field input {
+    width: 70px;
+  }
+
+  .drawing-options {
+    gap: 4px;
+    padding: 6px;
+  }
+
+  .drawing-options button {
+    padding: 5px;
+  }
+}

@@ -16,7 +16,7 @@ import type {CommandId} from '../commands/catalog';
 import {AreaSelectionOptions} from './AreaSelectionOptions';
 import './toolOptions.css';
 
-const labels:Record<string,string>={select:'移动/点选',marquee:'矩形框选',lasso:'自由套索',geometry:'几何编辑','panel-cut':'分镜切割','image-crop':'素材裁剪','image-mask':'素材遮罩',crop:'调整框内图片',text:'文字编辑','speed-brush':'速度线笔刷','bubble-brush':'气泡笔刷'};
+const labels:Record<string,string>={select:'移动/点选',marquee:'矩形框选',lasso:'自由套索',geometry:'几何编辑','panel-cut':'分镜切割','image-crop':'素材裁剪','image-mask':'素材遮罩',crop:'调整框内图片',text:'文字编辑','speed-brush':'速度线笔刷','bubble-brush':'手绘气泡'};
 const command:Partial<Record<string,CommandId>>={select:'tool-select',marquee:'tool-marquee',lasso:'tool-lasso',geometry:'tool-geometry','panel-cut':'tool-panel-cut','image-crop':'tool-image-crop','image-mask':'tool-image-mask','bubble-brush':'tool-bubble-brush'};
 function notice(r:Result<unknown>){if(!r.ok)pushNotice('error',r.problems[0].message);}
 function Controls({disabled,bindings,prefix=''}:{disabled:boolean;bindings:Partial<Record<CommandId,string>>;prefix?:string}){

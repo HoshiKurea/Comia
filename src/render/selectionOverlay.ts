@@ -9,6 +9,7 @@ export function selectionPolygon(project:Project,id:Id,viewport:Viewport):Point[
   const layer=project.layers[id];if(!layer)return [];
   let points:Point[];
   if(layer.type==='panel')points=layer.geometry;
+  else if(layer.type==='decoration'&&layer.spec.kind==='shape')points=layer.spec.geometry;
   else{
     let bounds:Rect;
     if(layer.type==='bubble'||layer.type==='image')bounds={x:0,y:0,width:layer.width,height:layer.height};

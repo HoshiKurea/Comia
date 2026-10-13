@@ -24,6 +24,7 @@ import type {
   PanelTemplateNode,
 } from './types';
 import { fail, ok, problem } from './types';
+import { parsePresentation, parseAppearancePreset } from '../appearance/model';
 import { validateAssetLibrary, libraryNameKey } from '../assets/folderModel';
 import { PRESET_LIMITS, validateComponentPreset } from '../library/presetModel';
 import { SPEED_BRUSH, validBrushOptions } from '../library/speedBrushGeometry';
@@ -211,6 +212,8 @@ function parseLayer(id: string, raw: Record<string, unknown>, pageId: Id, proble
     return null;
   }
   const matrix = raw.matrix as [number, number, number, number, number, number];
+  const appearance = raw.presentation === undefined ? null : parsePresentation(raw.presentation, `layers.${id}.presentation`);
+  if (raw.presentation !== undefined && (version < 12 || !appearance?.ok)) { problems.push(...(appearance && !appearance.ok ? appearance.problems : [problem('appearance/version','图层外观需要格式12',`layers.${id}`)])); return null; }
   const common = {
     id,
     pageId,
@@ -220,6 +223,7 @@ function parseLayer(id: string, raw: Record<string, unknown>, pageId: Id, proble
     locked: raw.locked as boolean,
     colorLabel: ((raw.colorLabel ?? null) === null ? null : raw.colorLabel) as Layer['colorLabel'],
     matrix,
+    ...(appearance?.ok ? { presentation: appearance.value } : {}),
   };
 
   const type = raw.type;
@@ -431,7 +435,8 @@ function parseLayer(id: string, raw: Record<string, unknown>, pageId: Id, proble
       }
       if (raw.freehandSource !== undefined || layer.shape === 'freehand') {
         if (version < 10 || layer.shape !== 'freehand' || layer.contour || layer.handDrawn) { problems.push(problem('drawing/version', '自由绘画气泡需要格式10和独立绘画源', `layers.${id}`)); return null; }
-        const source = parseDrawingSource(raw.freehandSource, 'bubble'); if (!source.ok) { problems.push(...source.problems); return null; } layer.freehandSource = source.value;
+        const source = parseDrawingSource(raw.freehandSource, 'bubble'); if (!source.ok) { problems.push(...source.problems); return null; }
+        if (version < 11 && source.value.version === 2) { problems.push(problem('drawing/version', '气泡细节需要格式11', `layers.${id}`)); return null; } layer.freehandSource = source.value;
       }
       const geometry = buildBubble(layer.shape, layer.width, layer.height, layer.style, layer.tail ?? null, layer);
       if (!geometry.ok) { problems.push(...geometry.problems.map((entry) => ({ ...entry, path: `layers.${id}` }))); return null; }
@@ -482,6 +487,7 @@ function parseLayer(id: string, raw: Record<string, unknown>, pageId: Id, proble
       const spec = parseDecorationSpec(raw.spec, `layers.${id}.spec`, problems);
       if (!spec) return null;
       if (version < 7 && spec.kind === 'speed-brush') { problems.push(problem('brush/version', '速度线笔刷需要格式7', `layers.${id}.spec`)); return null; }
+      if (version < 12 && spec.kind === 'shape') { problems.push(problem('shape/version', '普通矢量形状需要格式12', `layers.${id}.spec`)); return null; }
       if (version >= 6 && spec.kind === 'sfx') { problems.push(problem('text/legacy-sfx', '格式6声效必须使用独立文字图层', `layers.${id}.spec`)); return null; }
       const layer: Layer = { ...common, type: 'decoration', spec };
       return { layer, raw };
@@ -557,6 +563,13 @@ function parseDecorationSpec(v: unknown, path: string, problems: Problem[]): Dec
   }
   const inRange = (x: number, min: number, max: number) => x >= min && x <= max;
   switch (v.kind) {
+    case 'shape': {
+      const style=v.style;
+      if(!finNum(v.width)||!finNum(v.height)||!inRange(v.width,1,16384)||!inRange(v.height,1,16384)||!['convex','simple'].includes(String(v.geometryMode))||!validPointArray(v.geometry,256)||!isRecord(style)||!validRGBA(style.fill)||!validRGBA(style.borderColor)||!finNum(style.borderWidth)||!inRange(style.borderWidth,0,256)||!finNum(style.borderRadius)||!inRange(style.borderRadius,0,4096)) {problems.push(problem('shape/fields','矢量形状参数无效',path));return null;}
+      const geometry=v.geometry as Point[], valid=validatePanelGeometry({geometry,geometryMode:v.geometryMode as 'convex'|'simple'}); if(!valid.ok){problems.push(...valid.problems);return null;}
+      if(v.geometryMode==='simple'&&style.borderRadius!==0){problems.push(problem('shape/radius','自由轮廓圆角必须为0',path));return null;}
+      return {kind:'shape',width:v.width,height:v.height,geometry:geometry.map(p=>({...p})),geometryMode:v.geometryMode as 'convex'|'simple',style:{fill:style.fill.toUpperCase(),borderColor:style.borderColor.toUpperCase(),borderWidth:style.borderWidth,borderRadius:style.borderRadius}};
+    }
     case 'speed-brush': {
       const point = (p: unknown): p is Point => isRecord(p) && finNum(p.x) && finNum(p.y) && p.x >= 0 && p.x <= 1 && p.y >= 0 && p.y <= 1;
       if (!finNum(v.width) || !finNum(v.height) || !inRange(v.width, 16, 16384) || !inRange(v.height, 16, 16384)
@@ -697,8 +710,8 @@ export function validateProject(input: unknown): Result<Project> {
   }
 
   // 2. 顶层结构
-  if (input.schemaVersion !== 1 && input.schemaVersion !== 2 && input.schemaVersion !== 3 && input.schemaVersion !== 4 && input.schemaVersion !== 5 && input.schemaVersion !== 6 && input.schemaVersion !== 7 && input.schemaVersion !== 8 && input.schemaVersion !== 9 && input.schemaVersion !== 10) {
-    return fail(problem('project/version', `schemaVersion 必须为 1～10，收到 ${String(input.schemaVersion)}`));
+  if (input.schemaVersion !== 1 && input.schemaVersion !== 2 && input.schemaVersion !== 3 && input.schemaVersion !== 4 && input.schemaVersion !== 5 && input.schemaVersion !== 6 && input.schemaVersion !== 7 && input.schemaVersion !== 8 && input.schemaVersion !== 9 && input.schemaVersion !== 10 && input.schemaVersion !== 11 && input.schemaVersion !== 12) {
+    return fail(problem('project/version', `schemaVersion 必须为 1～12，收到 ${String(input.schemaVersion)}`));
   }
   if (input.schemaVersion >= 5 ? !Number.isSafeInteger(input.nextPanelNumber) || (input.nextPanelNumber as number) < 1 : input.nextPanelNumber !== undefined) return fail(problem('project/number-counter', '格式5/6需要有效的分镜计数器，旧格式不应包含新计数器'));
   if (!isUuid(input.id)) {
@@ -791,8 +804,10 @@ export function validateProject(input: unknown): Result<Project> {
   const templateNames = new Set<string>();
   if (input.schemaVersion >= 8 && Object.keys(input.templates).length > PRESET_LIMITS.count) return fail(problem('preset/limit', '自定义预设最多256个'));
   for (const [id, raw] of Object.entries(input.templates)) {
+    if(input.schemaVersion<12&&isRecord(raw)&&isRecord(raw.recipe)&&isRecord(raw.recipe.nodes)&&Object.values(raw.recipe.nodes).some(n=>isRecord(n)&&(n.presentation!==undefined||isRecord(n.spec)&&n.spec.kind==='shape'))){problems.push(problem('preset/version','外观／矢量形状预设需要格式12',`templates.${id}.recipe`));continue;}
     if(input.schemaVersion<9&&isRecord(raw)&&isRecord(raw.recipe)&&raw.recipe.kind==='bubble-brush'){problems.push(problem('preset/version','气泡笔刷预设需要格式9',`templates.${id}.recipe`));continue;}
     if(input.schemaVersion<10&&isRecord(raw)&&isRecord(raw.recipe)&&isRecord(raw.recipe.nodes)&&Object.values(raw.recipe.nodes).some(n=>isRecord(n)&&(n.shape==='freehand'||n.freehandSource!==undefined))){problems.push(problem('preset/version','自由绘画组件预设需要格式10',`templates.${id}.recipe`));continue;}
+    if(input.schemaVersion<11&&isRecord(raw)&&isRecord(raw.recipe)&&isRecord(raw.recipe.nodes)&&Object.values(raw.recipe.nodes).some(n=>isRecord(n)&&isRecord(n.freehandSource)&&n.freehandSource.version===2)){problems.push(problem('preset/version','气泡细节预设需要格式11',`templates.${id}.recipe`));continue;}
     if (!isSafeId(id) || !isRecord(raw)) {
       problems.push(problem('template/id', `模板 ${id} 非法`, `templates.${id}`));
       continue;
@@ -894,6 +909,8 @@ export function validateProject(input: unknown): Result<Project> {
     return fail(...treeProblems);
   }
 
+  const stylePresets: Record<Id, import('./types').AppearancePreset> = {};
+  if(input.stylePresets!==undefined){if(input.schemaVersion<12||!isRecord(input.stylePresets)||Object.keys(input.stylePresets).length>128)return fail(problem('appearance/presets','外观预设需要格式12且最多128项'));const names=new Set<string>();for(const [id,raw] of Object.entries(input.stylePresets)){const p=parseAppearancePreset(raw,`stylePresets.${id}`);if(!p.ok)return p;if(p.value.id!==id||names.has(libraryNameKey(p.value.name)))return fail(problem('appearance/preset-duplicate','外观预设编号或名称重复'));names.add(libraryNameKey(p.value.name));stylePresets[id]=p.value;}}
   const project:Project = {
     schemaVersion: input.schemaVersion,
     ...(input.schemaVersion >= 5 ? { nextPanelNumber: input.nextPanelNumber as number } : {}),
@@ -906,6 +923,7 @@ export function validateProject(input: unknown): Result<Project> {
     ...(input.schemaVersion >= 3 ? { libraryAssetIds: input.libraryAssetIds as Id[] } : {}),
     ...(organization?.ok ? { assetLibrary: organization.value } : {}),
     templates,
+    ...(input.stylePresets!==undefined?{stylePresets}:{}),
     settings: {
       readingDirection: settings.readingDirection as 'ltr' | 'rtl',
       defaultDpi: settings.defaultDpi as number,

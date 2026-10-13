@@ -1,4 +1,378 @@
-.asset-library{padding:12px 10px;overflow:auto;flex:1;min-height:0}.asset-heading{display:flex;align-items:center;justify-content:space-between;gap:5px;margin-bottom:12px}.asset-heading strong{font-size:13px}.asset-heading button{font-size:12px;padding:7px 8px}.asset-search{width:100%;box-sizing:border-box;margin-bottom:6px}.asset-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(82px,1fr));gap:10px}.asset-card{position:relative;min-width:0;border:1px solid var(--border,#d8ddd9);border-radius:6px;overflow:hidden;background:var(--surface,#fff)}.asset-card.picked{border-color:#e67d53}.asset-pick{display:flex;flex-direction:column;width:100%;padding:0;border:0;border-radius:0;background:transparent}.asset-pick canvas{display:block;width:100%;height:76px;object-fit:contain;background:repeating-conic-gradient(#ecefed 0% 25%,#fafbfa 0% 50%) 50%/14px 14px}.asset-pick span{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%;box-sizing:border-box;padding:6px 7px;font-size:11px}.asset-remove{position:absolute;right:2px;top:2px;width:22px;height:22px;padding:0;font-size:14px;opacity:.85}.asset-empty{padding:24px 8px;font-size:13px;line-height:1.7;color:var(--muted,#6a766e);text-align:center}.asset-bind{width:100%;margin-top:12px}.asset-import-status{font-size:12px;display:flex;gap:8px;margin-bottom:8px}.tabbar>button{min-width:0;flex:1;padding-left:4px;padding-right:4px}.image-material-controls{display:flex;flex-direction:column;gap:8px;margin:12px 0}.image-material-controls select{max-width:100%}.image-material-controls .button-stack{margin:0}
-.asset-library button,.image-material-controls button{font-family:inherit;border:1px solid var(--border);border-radius:5px;background:var(--surface);color:var(--text);padding:7px 9px;cursor:pointer;font-size:12px}.asset-library button:disabled{opacity:.5;cursor:default}.asset-library .asset-pick{padding:0;border:0;border-radius:0}.asset-library .asset-remove{padding:0}.asset-library input[type=search],.image-material-controls select{font-family:inherit;border:1px solid var(--border);background:var(--surface);color:var(--text);border-radius:5px;padding:7px;font-size:12px}.image-material-controls>strong{font-size:12px;color:var(--muted);margin-top:4px}.image-material-controls>label{font-size:12px;display:flex;gap:6px;align-items:center}.image-material-controls>label select{flex:1;min-width:0}.asset-pick span{color:var(--text)}
-.asset-pick{touch-action:none;user-select:none}.asset-drag-preview{position:fixed;left:0;top:0;z-index:2000;pointer-events:none;opacity:.55;will-change:transform;border:1px solid rgba(230,125,83,.5);box-shadow:0 3px 14px #0002}.asset-drag-preview[hidden]{display:none}.asset-drag-preview canvas{display:block}
-.asset-folder-actions,.asset-search-tools{display:flex;gap:4px;align-items:center;margin-bottom:7px}.asset-folder-actions button{padding:5px;font-size:11px}.asset-folder-tree{max-height:160px;overflow:auto;scrollbar-width:none;border:1px solid var(--border);border-radius:4px;padding:4px}.asset-folder-tree::-webkit-scrollbar{display:none}.asset-folder-tree [role=treeitem]{display:flex;gap:5px;align-items:center;text-align:left;border:0;background:transparent;width:100%;padding:5px;min-width:0}.asset-folder-tree [aria-selected=true]{background:var(--hover,#e67d5320);color:var(--accent,#c76440)}.asset-folder-tree [role=treeitem] span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}.asset-folder-tree small{margin-left:auto;color:var(--muted)}.asset-folder-row{display:flex;align-items:center}.asset-folder-row .folder-disclosure{border:0;background:none;padding:0;width:18px;flex:0 0 18px}.asset-breadcrumb{display:flex;align-items:center;flex-wrap:wrap;margin:5px 0}.asset-breadcrumb button{border:0;background:none;padding:3px;max-width:120px;overflow:hidden;text-overflow:ellipsis;font-size:11px}.asset-search-tools input{margin:0;min-width:0;flex:1}.asset-list{grid-template-columns:1fr}.asset-list .asset-pick{flex-direction:row;align-items:center}.asset-list .asset-pick canvas{width:64px;flex:0 0 64px;height:48px}.asset-folder-path{display:block;padding:2px 6px 5px;color:var(--muted);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.asset-move{position:absolute;bottom:22px;right:2px;width:22px;height:22px;padding:0!important;font-size:12px;opacity:.85}.folder-move-list{display:flex;flex-direction:column;gap:6px;max-height:50vh;overflow:auto}
+/* Comia — asset library (imported materials). */
+
+.asset-library {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 12px 10px;
+  overflow: auto;
+}
+
+.asset-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.asset-heading strong {
+  font-size: var(--fs-body);
+  font-weight: var(--fw-semi);
+}
+
+.asset-search {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 8px;
+}
+
+.asset-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
+  gap: 10px;
+}
+
+.asset-card {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  transition: border-color var(--speed) ease;
+}
+
+.asset-card:hover {
+  border-color: var(--border-strong);
+}
+
+.asset-card.picked {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-line);
+}
+
+.asset-pick {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  touch-action: none;
+  user-select: none;
+}
+
+/* Transparency checkerboard so cut-out art reads correctly. */
+.asset-pick canvas {
+  display: block;
+  width: 100%;
+  height: 76px;
+  object-fit: contain;
+  background-color: var(--checker-b);
+  background-image: repeating-conic-gradient(var(--checker-a) 0% 25%, var(--checker-b) 0% 50%);
+  background-size: 14px 14px;
+}
+
+.asset-pick span {
+  display: block;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 6px 7px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--fs-micro);
+  color: var(--text);
+}
+
+.asset-remove {
+  position: absolute;
+  right: 2px;
+  top: 2px;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  font-size: 13px;
+  opacity: .85;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--muted);
+}
+
+.asset-remove:hover {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.asset-empty {
+  padding: 26px 10px;
+  font-size: var(--fs-body);
+  line-height: var(--lh-body);
+  color: var(--muted);
+  text-align: center;
+}
+
+.asset-bind {
+  width: 100%;
+  margin-top: 12px;
+}
+
+.asset-import-status {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+  font-size: var(--fs-label);
+}
+
+/* --- Shared control styling ----------------------------------------------- */
+
+.asset-library button,
+.image-material-controls button {
+  padding: 7px 10px;
+  font-family: inherit;
+  font-size: var(--fs-label);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color var(--speed) ease, color var(--speed) ease;
+}
+
+.asset-library button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.asset-library button:disabled {
+  opacity: .5;
+  cursor: default;
+}
+
+.asset-library .asset-pick {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.asset-library .asset-pick:hover {
+  color: var(--text);
+}
+
+.asset-library .asset-remove {
+  padding: 0;
+}
+
+.asset-library input[type=search],
+.image-material-controls select {
+  padding: 7px;
+  font-family: inherit;
+  font-size: var(--fs-label);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.image-material-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.image-material-controls select {
+  max-width: 100%;
+}
+
+.image-material-controls .button-stack {
+  margin: 0;
+}
+
+.image-material-controls>strong {
+  margin-top: 4px;
+  font-size: var(--fs-label);
+  color: var(--muted);
+}
+
+.image-material-controls>label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-label);
+}
+
+.image-material-controls>label select {
+  flex: 1;
+  min-width: 0;
+}
+
+/* --- Drag preview --------------------------------------------------------- */
+
+.asset-drag-preview {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 2000;
+  opacity: .6;
+  pointer-events: none;
+  will-change: transform;
+  border: 1px solid var(--accent-line);
+  box-shadow: var(--shadow-2);
+}
+
+.asset-drag-preview[hidden] {
+  display: none;
+}
+
+.asset-drag-preview canvas {
+  display: block;
+}
+
+/* --- Folders -------------------------------------------------------------- */
+
+.asset-folder-actions,
+.asset-search-tools {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-bottom: 7px;
+}
+
+.asset-folder-actions button {
+  padding: 5px;
+  font-size: var(--fs-micro);
+}
+
+.asset-folder-tree {
+  max-height: 160px;
+  overflow: auto;
+  scrollbar-width: none;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 4px;
+}
+
+.asset-folder-tree::-webkit-scrollbar {
+  display: none;
+}
+
+.asset-folder-tree [role=treeitem] {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  width: 100%;
+  min-width: 0;
+  padding: 5px;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.asset-folder-tree [role=treeitem]:hover {
+  background: var(--hover);
+}
+
+.asset-folder-tree [aria-selected=true] {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.asset-folder-tree [role=treeitem] span {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.asset-folder-tree small {
+  margin-left: auto;
+  color: var(--muted);
+}
+
+.asset-folder-row {
+  display: flex;
+  align-items: center;
+}
+
+.asset-folder-row .folder-disclosure {
+  border: 0;
+  background: none;
+  padding: 0;
+  width: 18px;
+  flex: 0 0 18px;
+}
+
+.asset-breadcrumb {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  margin: 5px 0;
+}
+
+.asset-breadcrumb button {
+  border: 0;
+  background: none;
+  padding: 3px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: var(--fs-micro);
+}
+
+.asset-search-tools input {
+  margin: 0;
+  min-width: 0;
+  flex: 1;
+}
+
+/* Alternate list presentation of the same assets. */
+.asset-list {
+  grid-template-columns: 1fr;
+}
+
+.asset-list .asset-pick {
+  flex-direction: row;
+  align-items: center;
+}
+
+.asset-list .asset-pick canvas {
+  width: 64px;
+  flex: 0 0 64px;
+  height: 48px;
+}
+
+.asset-folder-path {
+  display: block;
+  padding: 2px 6px 5px;
+  color: var(--muted);
+  font-size: var(--fs-micro);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.asset-move {
+  position: absolute;
+  bottom: 22px;
+  right: 2px;
+  width: 22px;
+  height: 22px;
+  padding: 0 !important;
+  font-size: 12px;
+  opacity: .85;
+}
+
+.folder-move-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 50vh;
+  overflow: auto;
+}

@@ -26,6 +26,7 @@ export function createDialogue(ids:Id[],mode:DialogueSpec['mode']):Result<Id>{
   const draft=structuredClone(project);promoteMangaDraft(draft);const points=[];
   for(const id of ordered){const geometry=composeBubble(draft,id);if(!geometry.ok)return geometry;points.push(...rectCorners(geometry.value.bounds,draft.layers[id].matrix));}
   const bounds=polyBounds(points),group=createLayer('group',first.pageId);if(group.type!=='group')throw Error('group factory');group.name='连续对白';group.parentId=first.parentId;group.matrix=translation(bounds.x,bounds.y);group.children=ordered;
+  if(top.presentation){group.presentation=structuredClone(top.presentation);delete group.presentation.transformHint;}
   group.dialogue={mode,links:ordered.slice(1).map((to,i)=>({from:ordered[i],to,width:24,bend:0})),seamRadius:4,overlapOpacity:.65,fusionStyle:structuredClone(top.style),fusionPressure:top.handDrawn?.pressure??0,seed:top.handDrawn?.seed??42};
   const parent=group.parentId?draft.layers[group.parentId]:null,list=parent&&'children'in parent?parent.children:draft.pages[group.pageId].roots;
   list.splice(list.indexOf(ordered[0]),ordered.length,group.id);draft.layers[group.id]=group;

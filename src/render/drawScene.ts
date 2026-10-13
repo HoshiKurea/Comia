@@ -1,3 +1,6 @@
+import { paintStyledOps } from '../appearance/compositor';
+import { paintFill, paintStroke, paintBorderRegion, customStroke } from '../appearance/paint';
+import { compositeMode,presentation } from '../appearance/model';
 import { paintImageWindow } from '../images/paintImageWindow';
 import { bubbleFrameBounds } from '../text/bubbleFrameBounds';
 import { maskContains, traceImageMask } from '../images/maskGeometry';
@@ -24,6 +27,7 @@ import { regionToPath } from '../geometry/renderRegion';
 import { drawOverlapSurface } from '../bubbles/overlapRaster';
 import { prepareTailPaint } from '../bubbles/tailPaint';
 import type { Region } from '../geometry/pathRegion';
+import { drawBubbleInk, bubbleInkContains } from '../bubbles/inkPaint';
 
 export type ImageResources = Map<string, CanvasImageSource>;
 const I: Mat = [1, 0, 0, 1, 0, 0];
@@ -100,6 +104,7 @@ function drawOp(ctx: CanvasRenderingContext2D, project: Project, op: ScenePaintO
   const layer = project.layers[id];
   if (!layer || !layer.visible) return;
   ctx.save();
+  try{
   for (const parent of op.lineage) ctx.globalAlpha *= opacity?.get(parent) ?? 1;
   applyPanelClipPolicy(ctx, project, op);
   ctx.transform(...op.worldMatrix);
@@ -108,18 +113,21 @@ function drawOp(ctx: CanvasRenderingContext2D, project: Project, op: ScenePaintO
     const spec=layer.dialogue;
     const fillRegion=(region:Parameters<typeof regionToPath>[0],color:string)=>{if(region.length)drawShape(ctx,regionToPath(region),color,'transparent',0);};
     if(spec.mode==='connector')fillRegion(geometry.lines,spec.fusionStyle.borderColor);
-    if(spec.mode==='fused') {fillRegion(geometry.outer??[],spec.fusionStyle.outerStroke?.color??'transparent');fillRegion(geometry.fusionRegion??[],spec.fusionStyle.fill);fillRegion(geometry.inner??[],spec.fusionStyle.innerStroke?.color??'transparent');fillRegion(geometry.border,spec.fusionStyle.borderColor);fillRegion(geometry.lines,spec.fusionStyle.borderColor);}
+    if(spec.mode==='fused') {fillRegion(geometry.outer??[],spec.fusionStyle.outerStroke?.color??'transparent');if(geometry.fusionRegion)paintFill(ctx,regionToPath(geometry.fusionRegion),spec.fusionStyle.fill,layer);fillRegion(geometry.inner??[],spec.fusionStyle.innerStroke?.color??'transparent');if(customStroke(layer)&&geometry.fusionRegion)paintStroke(ctx,regionToPath(geometry.fusionRegion),spec.fusionStyle.borderColor,spec.fusionStyle.borderWidth,layer);else paintBorderRegion(ctx,regionToPath(geometry.border),spec.fusionStyle.borderColor,layer);fillRegion(geometry.lines,spec.fusionStyle.borderColor);}
     if(spec.mode==='overlap'){
+      ctx.save();ctx.globalCompositeOperation=compositeMode(presentation(layer).fillBlendMode);
       drawOverlapSurface(ctx,geometry,project,spec.overlapOpacity);
+      ctx.restore();
     }
-    if(spec.mode!=='fused')for(const cid of geometry.memberIds){const member=project.layers[cid],g=prepared.bubbles.get(cid);if(member.type!=='bubble'||!g)continue;ctx.save();ctx.transform(...member.matrix);
+    if(spec.mode!=='fused')for(const cid of geometry.memberIds){const member=project.layers[cid],g=prepared.bubbles.get(cid);if(member.type!=='bubble'||!g)continue;const paintMember=layer.presentation?{...member,presentation:layer.presentation}:member;ctx.save();ctx.transform(...member.matrix);
       fillRegion(g.outerRegion??[],member.style.outerStroke?.color??'transparent');
-      if(spec.mode==='connector')drawShape(ctx,g.outline,member.style.fill,member.style.borderColor,g.borderRegion===undefined?member.style.borderWidth:0);
+      if(spec.mode==='connector'){paintFill(ctx,g.outline,member.style.fill,paintMember);if(g.borderRegion===undefined||customStroke(paintMember))paintStroke(ctx,g.outline,member.style.borderColor,member.style.borderWidth,paintMember);}
       else if(g.borderRegion===undefined){tracePath(ctx,g.outline);ctx.strokeStyle=member.style.borderColor;ctx.lineWidth=member.style.borderWidth;ctx.lineJoin='round';if(member.style.borderWidth)ctx.stroke();}
       fillRegion(g.innerRegion??[],member.style.innerStroke?.color??'transparent');
-      if(g.borderRegion!==undefined)fillRegion(g.borderRegion,member.style.borderColor);
+      if(g.borderRegion!==undefined&&!customStroke(paintMember))paintBorderRegion(ctx,regionToPath(g.borderRegion),member.style.borderColor,paintMember);
       if(g.tailLine){tracePath(ctx,g.tailLine);ctx.strokeStyle=member.style.borderColor;ctx.lineWidth=member.style.borderWidth;ctx.lineCap='round';if(member.style.borderWidth)ctx.stroke();}ctx.restore();
     }
+    for (const cid of geometry.memberIds) { const member=project.layers[cid]; if(member.type==='bubble'){ctx.save();ctx.transform(...member.matrix);drawBubbleInk(ctx,member);ctx.restore();} }
   }
   else if (layer.type === 'pageBackground') drawBackground(ctx, project.pages[layer.pageId], layer);
   else if (layer.type === 'panel') {
@@ -135,14 +143,8 @@ function drawOp(ctx: CanvasRenderingContext2D, project: Project, op: ScenePaintO
         ctx.fillStyle = '#000000'; ctx.globalAlpha *= .3; ctx.fillRect(mapping.x, mapping.y, mapping.width, mapping.height); ctx.restore();
       }
     }
-    if (op.kind === 'panelFill') drawShape(ctx, path, layer.style.fill, 'transparent', 0);
-    if (op.kind === 'panelBorder' && layer.style.borderWidth > 0) {
-      tracePath(ctx, path);
-      ctx.strokeStyle = layer.style.borderColor;
-      ctx.lineWidth = layer.style.borderWidth;
-      ctx.lineJoin = 'round';
-      ctx.stroke();
-    }
+    if (op.kind === 'panelFill') paintFill(ctx,path,layer.style.fill,layer);
+    if(op.kind==='panelBorder')paintStroke(ctx,path,layer.style.borderColor,layer.style.borderWidth,layer,layer.geometry);
   } else if (layer.type === 'image') {
     const meta = project.assets[layer.assetId];
     const image = meta ? images.get(meta.renderHash) : undefined;
@@ -162,15 +164,17 @@ function drawOp(ctx: CanvasRenderingContext2D, project: Project, op: ScenePaintO
     const geometry = prepared.bubbles.get(id);
     if (!geometry) throw new Error(`气泡“${layer.name}”缺少预编译轮廓`);
     if(geometry.outerRegion?.length)drawShape(ctx,regionToPath(geometry.outerRegion),layer.style.outerStroke!.color,'transparent',0);
-    drawShape(ctx, geometry.outline, layer.style.fill, layer.style.borderColor, geometry.borderRegion === undefined ? layer.style.borderWidth : 0);
+    paintFill(ctx,geometry.outline,layer.style.fill,layer);
+    if(geometry.borderRegion===undefined || customStroke(layer))paintStroke(ctx,geometry.outline,layer.style.borderColor,layer.style.borderWidth,layer);
     if(geometry.innerRegion?.length)drawShape(ctx,regionToPath(geometry.innerRegion),layer.style.innerStroke!.color,'transparent',0);
-    if(geometry.borderRegion!==undefined){tracePath(ctx,regionToPath(geometry.borderRegion));ctx.fillStyle=layer.style.borderColor;ctx.fill();}
+    if(geometry.borderRegion!==undefined&&!customStroke(layer))paintBorderRegion(ctx,regionToPath(geometry.borderRegion),layer.style.borderColor,layer);
     if (geometry.tailLine) {
       tracePath(ctx, geometry.tailLine);
       ctx.strokeStyle = layer.style.borderColor;
       ctx.lineWidth = layer.style.borderWidth;
       ctx.stroke();
     }
+    drawBubbleInk(ctx, layer);
   } else if(layer.type==='bubbleTail'){
     const geometry=prepared.tailPaints.get(id);if(!geometry)throw Error(`尾巴“${layer.name}”缺少预编译几何`);
     if(geometry.outer?.length)drawShape(ctx,regionToPath(geometry.outer),geometry.style.outerStroke!.color,'transparent',0);
@@ -178,7 +182,9 @@ function drawOp(ctx: CanvasRenderingContext2D, project: Project, op: ScenePaintO
   } else if (layer.type === 'text') drawText(ctx, layer, prepared);
   else if (layer.type === 'decoration') {
     const spec = layer.spec;
-    if (spec.kind === 'sfx') {
+    if (spec.kind === 'shape') {
+      const path=prepared.decorations.get(id)?.[0];if(!path)throw Error('形状缺少预编译轮廓');paintFill(ctx,path,spec.style.fill,layer);paintStroke(ctx,path,spec.style.borderColor,spec.style.borderWidth,layer,spec.geometry);
+    } else if (spec.kind === 'sfx') {
       ctx.fillStyle = spec.color;
       ctx.strokeStyle = spec.outline;
       ctx.lineWidth = spec.outlineWidth;
@@ -203,7 +209,7 @@ function drawOp(ctx: CanvasRenderingContext2D, project: Project, op: ScenePaintO
       }
     }
   }
-  ctx.restore();
+  }finally{ctx.restore();}
 }
 
 export function drawPage(ctx: CanvasRenderingContext2D, project: Project, pageId: Id, images: ImageResources, roots?: Id[], paintBackground = true, opacity?: ReadonlyMap<Id, number>, cropGhostId?: Id, prepared?: SceneTextResources): void {
@@ -212,12 +218,13 @@ export function drawPage(ctx: CanvasRenderingContext2D, project: Project, pageId
   if (!page) return;
   if(!prepared){const t=ctx.getTransform();prepared=compileScene(project, pageId, snapshotSceneFonts(project, pageId, roots), { snapshot: false, roots, fontGeneration: runtimeStore.getState().fontGeneration,target:{localToOutput:[t.a,t.b,t.c,t.d,0,0],tolerancePx:.25} }).text;}
   ctx.save();
+  try{
   ctx.beginPath();
   ctx.rect(0, 0, page.width, page.height);
   ctx.clip();
   if (paintBackground && project.schemaVersion < 4) { ctx.fillStyle = page.background ?? '#FFFFFFFF'; ctx.fillRect(0, 0, page.width, page.height); }
-  for (const op of prepared.paintOps) drawOp(ctx, project, op, images, prepared, opacity, cropGhostId);
-  ctx.restore();
+  paintStyledOps(ctx,project,prepared.paintOps,(target,op)=>drawOp(target,project,op,images,prepared!,opacity,cropGhostId));
+  }finally{ctx.restore();}
 }
 
 /** Panel previews keep the same subtree painter and ancestor clipping, without painting other siblings or paper. */
@@ -303,6 +310,7 @@ export function hitLayer(project: Project, pageId: Id, pagePoint: Point, scopeId
       return null;
     }
     if (layer.type === 'bubble') {
+      if (bubbleInkContains(layer, local)) return id;
       for(const child of [...layer.children].reverse())if(project.layers[child]?.type==='bubbleTail'){const hit=visit(child,world);if(hit)return hit;}
       const geometry=composeBubble(project,id);if(!geometry.ok)return null;
       if(regionContains(geometry.value.fillRegion,local)||regionContains(geometry.value.outerRegion??[],local)||regionContains(geometry.value.borderRegion??[],local))return id;
@@ -320,6 +328,7 @@ export function hitLayer(project: Project, pageId: Id, pagePoint: Point, scopeId
       const tolerance=6/zoom;
       for(const region of geometry.value.fillRegions)for(const polygon of region)for(const ring of polygon)for(let i=0;i+1<ring.length;i++)if(distanceToSegment(point,apply(world,{x:ring[i][0],y:ring[i][1]}),apply(world,{x:ring[i+1][0],y:ring[i+1][1]}))<=tolerance)return id;
       return null;}
+    if(layer.spec.kind==='shape')return containsSimplePolygon(layer.spec.geometry,local)?id:null;
     if (layer.spec.kind === 'speed-brush') return speedBrushContains(layer.spec, local) ? id : null;
     return containsRect({ x: 0, y: 0, width: layer.spec.width, height: layer.spec.height }, local) ? id : null;
   };
