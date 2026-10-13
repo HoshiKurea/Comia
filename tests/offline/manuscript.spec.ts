@@ -9,6 +9,7 @@ test('production offline comic setup and saved guides reopen; actual PNG and all
   await context.setOffline(true); await page.reload();
   await (await menuCommand(page, '新建项目…')).click(); const dialog = page.getByRole('dialog', { name: '新建项目', exact: true });
   await expect(dialog.getByLabel('新项目 DPI')).toHaveValue('600'); await expect(dialog.getByLabel('新项目页数')).toHaveValue('8');
+  await expect(dialog.getByLabel('新项目纸张',{exact:true})).toHaveValue('comic-B5'); await expect(dialog.getByLabel('新项目单位')).toHaveValue('mm'); await expect(dialog.getByText(/装订|成品/)).toHaveCount(0);
   await dialog.getByLabel('新项目名称').fill('离线原稿'); await dialog.getByRole('button', { name: '创建项目', exact: true }).click(); await expect(dialog).toHaveCount(0);
   const download = page.waitForEvent('download'); await (await menuCommand(page, '保存')).click(); const saved = await readFile((await (await download).path())!);
   const envelope = JSON.parse(saved.toString()); expect(envelope.project.schemaVersion).toBe(13); expect(envelope.project.pageOrder).toHaveLength(8);

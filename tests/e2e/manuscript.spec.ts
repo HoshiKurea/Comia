@@ -13,7 +13,8 @@ test('default comic setup creates 8 independent A4/600/B5 manuscript pages and a
   const initial = await state(page); expect(initial.project.pages[initial.project.pageOrder[0]]).toMatchObject({ width: 4961, height: 7016, dpi: 600, manuscript: { bleedMm: 5 } });
   await (await menuCommand(page, '新建项目…')).click(); const dialog = page.getByRole('dialog', { name: '新建项目', exact: true });
   await expect(dialog.getByLabel('新项目页数')).toHaveValue('8'); await expect(dialog.getByLabel('新项目 DPI')).toHaveValue('600');
-  await expect(dialog.getByLabel('新项目宽度')).toHaveValue('210'); await expect(dialog.getByLabel('新项目成品宽度')).toHaveValue('182');
+  await expect(dialog.getByLabel('新项目纸张',{exact:true})).toHaveValue('comic-B5'); await expect(dialog.getByLabel('新项目单位')).toHaveValue('mm'); await expect(dialog.getByText(/装订|成品/)).toHaveCount(0);
+  await expect(dialog.getByLabel('新项目宽度')).toHaveValue('210'); await expect(dialog.getByLabel('新项目定位框宽度')).toHaveValue('182');
   await expect(dialog.getByRole('img', { name: '漫画原稿定位线预览' })).toBeVisible(); await dialog.getByLabel('新项目名称').fill('日式漫画');
   await dialog.screenshot({ path: `output/manuscript/new-comic-dpr${test.info().project.name.endsWith('1') ? 1 : 2}.png` });
   await dialog.getByRole('button', { name: '创建项目', exact: true }).click(); await expect(dialog).toHaveCount(0);
@@ -70,6 +71,20 @@ test('millimetre/pixel custom pages, orientation, page counts and transparent pa
   await dialog.getByLabel('新项目宽度').fill('113'); await dialog.getByLabel('新项目高度').fill('79'); await dialog.getByLabel('新项目方向').selectOption('landscape');
   await dialog.getByLabel('新项目页数').fill('0'); await expect(dialog.getByRole('button', { name: '创建项目' })).toBeDisabled(); await dialog.getByLabel('新项目页数').fill('1');
   await dialog.getByLabel('新项目背景').selectOption('transparent'); await dialog.getByRole('button', { name: '创建项目' }).click(); const s = await state(page); const p = s.project.pages[s.session.activePageId]; expect(p).toMatchObject({ width: 113, height: 79 }); expect(p.manuscript).toBeUndefined(); expect(s.project.layers[p.roots[0]]).toMatchObject({ fill: '#FFFFFF00' });
+});
+
+test('page sidebar defaults to B5 manuscript and mm; reopening retains the exact nominal manuscript dimensions', async ({ page }) => {
+  await page.getByRole('tab', { name: '页面', exact: true }).click(); const before = await state(page);
+  await expect(page.locator('.page-item').first()).toContainText('B5 漫画原稿 · 210 × 297 mm');
+  await expect(page.getByLabel('页面单位')).toHaveValue('mm'); await expect(page.getByLabel('页面宽度')).toHaveValue('210'); await expect(page.getByLabel('页面高度')).toHaveValue('297');
+  await page.getByLabel('页面单位').selectOption('px'); await expect(page.getByLabel('页面宽度')).toHaveValue('4961'); await expect(page.locator('.page-item').first()).toContainText('4961 × 7016 px');
+  await page.getByLabel('页面单位').selectOption('mm'); await expect(page.getByLabel('页面宽度')).toHaveValue('210'); expect((await state(page)).project).toEqual(before.project); expect((await state(page)).stateId).toBe(before.stateId);
+  const dialog = await openPageSetup(page); await expect(dialog.getByLabel('页面单位')).toHaveValue('mm'); await expect(dialog.getByLabel('页面宽度')).toHaveValue('210'); await expect(dialog.getByLabel('页面高度')).toHaveValue('297');
+  await expect(dialog.getByLabel('页面定位框预设')).toHaveValue('B5-JIS'); await expect(dialog.getByLabel('页面定位框宽度')).toHaveValue('182'); await expect(dialog.getByLabel('页面定位框高度')).toHaveValue('257');
+  await dialog.getByRole('button', { name: '取消', exact: true }).click(); expect((await state(page)).project).toEqual(before.project);
+  await page.getByLabel('页面宽度').fill('220'); page.once('dialog', dialog=>dialog.accept()); await page.getByRole('button',{name:'应用页面尺寸',exact:true}).click();
+  const changed=await state(page); expect(changed.project.pages[changed.session.activePageId].width).toBe(5197); expect(changed.project.pages[changed.session.activePageId].manuscript).toEqual(before.project.pages[before.session.activePageId].manuscript); expect(changed.past).toBe(before.past+1);
+  await (await menuCommand(page,'撤销')).click(); expect((await state(page)).project).toEqual(before.project); await expect(page.getByLabel('页面宽度')).toHaveValue('210');
 });
 
 test('positioning guide render cost is bounded on the active A4 manuscript without painting main content', async ({ page }) => {

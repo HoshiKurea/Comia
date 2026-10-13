@@ -40,8 +40,8 @@ export function parseManuscript(value: unknown, page: Pick<Page, 'width' | 'heig
   const g = manuscriptGeometry(page, v), epsilon = .500001; // The outer canvas alone is rounded to integer px.
   const inside = (inner: Rect, outer: Rect) => inner.x >= outer.x - epsilon && inner.y >= outer.y - epsilon &&
     inner.x + inner.width <= outer.x + outer.width + epsilon && inner.y + inner.height <= outer.y + outer.height + epsilon;
-  if (!inside(g.bleed, { x: 0, y: 0, width: page.width, height: page.height })) return bad('成品尺寸加两侧出血必须放得进画布');
-  if (g.trim.width < 1 || g.trim.height < 1 || g.basic.width < 1 || g.basic.height < 1 || !inside(g.basic, g.trim)) return bad('基本框（含偏移）必须位于成品框内，框的宽高至少1像素');
+  if (!inside(g.bleed, { x: 0, y: 0, width: page.width, height: page.height })) return bad('定位框加两侧出血必须放得进画布');
+  if (g.trim.width < 1 || g.trim.height < 1 || g.basic.width < 1 || g.basic.height < 1 || !inside(g.basic, g.trim)) return bad('基本框（含偏移）必须位于定位框内，框的宽高至少1像素');
   if (g.safe && (g.safe.width < 1 || g.safe.height < 1)) return bad('安全边距过大，安全框须保留至少1像素的宽高');
   return ok({ trim: { ...v.trim }, bleedMm: v.bleedMm, basicFrame: { ...v.basicFrame }, safeInsetMm: v.safeInsetMm, cropMarks: v.cropMarks });
 }

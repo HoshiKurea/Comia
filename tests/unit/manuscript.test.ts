@@ -32,7 +32,7 @@ describe('comic manuscript setup and guides', () => {
     expect(g.safe!.width).toBeCloseTo((182 - 14) * k, 8);
     const draft = createPageSetupDraft(page); draft.width = '210.015666666667'; draft.height = String(page.height * 25.4 / page.dpi);
     expect(resolvePageSetup(draft)).toMatchObject({ ok: true, value: { width: page.width, height: page.height } });
-    draft.unit = 'px'; draft.width = '20.5'; draft.height = '200'; draft.manuscript = false; expect(resolvePageSetup(draft).ok).toBe(false);
+    draft.preset = 'custom'; draft.unit = 'px'; draft.width = '20.5'; draft.height = '200'; draft.manuscript = false; expect(resolvePageSetup(draft).ok).toBe(false);
   });
   it('rejects missing/nonfinite, negative, overflowing bleed/basic/offset/safety settings without mutating inputs', () => {
     const p = createProject({ comic: true }), page = p.pages[p.pageOrder[0]];

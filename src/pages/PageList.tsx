@@ -6,6 +6,7 @@ import { finishActiveTextEdit } from '../text/editLifecycle';
 import { cancelActiveGesture } from '../interaction/activeGesture';
 import { activatePage, reorderPages } from './commands';
 import { PageThumbnail, PageThumbnailRetry } from './PageThumbnail';
+import { pageDimensionsMm, isB5Manuscript } from './paperSizes';
 
 interface PageDrag {
   id: Id; pointerId: number; stateId: Id; epoch: number; source: HTMLElement;
@@ -15,8 +16,8 @@ interface PageDrag {
 }
 
 /** Pointer capture fixes the source before scrolling. Preview DOM never updates the canvas or document. */
-export function PageList({ project, activeId, rename, remove }: {
-  project: Project; activeId: Id; rename: (id: Id) => void; remove: (id: Id) => void;
+export function PageList({ project, activeId, rename, remove, unit='mm' }: {
+  project: Project; activeId: Id; rename: (id: Id) => void; remove: (id: Id) => void; unit?:'mm'|'px';
 }) {
   const root = useRef<HTMLDivElement>(null), drag = useRef<PageDrag | null>(null), suppressClick = useRef(false);
   const clear = () => {
@@ -105,7 +106,7 @@ export function PageList({ project, activeId, rename, remove }: {
         if (commit) { event.preventDefault(); const result = reorderPages(active.id, insertion!.beforeId); if (!result.ok) pushNotice('error', result.problems[0].message); }
         else if (click) activatePage(active.id);
       }} onPointerCancel={clear} onLostPointerCapture={(event) => { if (drag.current?.pointerId === event.pointerId) clear(); }}>
-      <button onClick={() => activatePage(id)}><PageThumbnail pageId={id} index={index} /><span><strong>{project.pages[id].name}</strong><small>{project.pages[id].width} × {project.pages[id].height}</small></span></button>
+      <button onClick={() => activatePage(id)}><PageThumbnail pageId={id} index={index} /><span><strong>{project.pages[id].name}</strong>{unit==='px'?<small>{project.pages[id].width} × {project.pages[id].height} px</small>:<small>{isB5Manuscript(project.pages[id])?'B5 漫画原稿 · ':''}{pageDimensionsMm(project.pages[id]).width} × {pageDimensionsMm(project.pages[id]).height} mm</small>}</span></button>
       <PageThumbnailRetry pageId={id} />
       <button className="page-rename" title="重命名页面" aria-label="重命名页面" onClick={() => rename(id)}>✎</button>
       <button className="page-delete" title="删除页面" aria-label="删除页面" onClick={() => remove(id)}>×</button>
