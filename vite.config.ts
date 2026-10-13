@@ -2,6 +2,8 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
+  // Verification servers must not rewrite the live editor's dependency cache.
+  cacheDir: process.env.COMIA_VITE_CACHE_DIR ?? 'node_modules/.vite',
   plugins: [react()],
   server: {
     port: 5173,

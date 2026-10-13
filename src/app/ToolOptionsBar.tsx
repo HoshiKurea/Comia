@@ -1,3 +1,4 @@
+import {ComicToolOptions} from '../comicDrawing/ComicToolOptions';
 import {BubbleBrushOptions} from '../bubbles/BubbleBrushOptions';
 import {useEffect,useLayoutEffect,useRef,useState} from 'react';
 import {createPortal} from 'react-dom';
@@ -16,8 +17,8 @@ import type {CommandId} from '../commands/catalog';
 import {AreaSelectionOptions} from './AreaSelectionOptions';
 import './toolOptions.css';
 
-const labels:Record<string,string>={select:'移动/点选',marquee:'矩形框选',lasso:'自由套索',geometry:'几何编辑','panel-cut':'分镜切割','image-crop':'素材裁剪','image-mask':'素材遮罩',crop:'调整框内图片',text:'文字编辑','speed-brush':'速度线笔刷','bubble-brush':'手绘气泡'};
-const command:Partial<Record<string,CommandId>>={select:'tool-select',marquee:'tool-marquee',lasso:'tool-lasso',geometry:'tool-geometry','panel-cut':'tool-panel-cut','image-crop':'tool-image-crop','image-mask':'tool-image-mask','bubble-brush':'tool-bubble-brush'};
+const labels:Record<string,string>={'flash-bubble':'效果线气泡','paint-pen':'绘画画笔','paint-eraser':'绘画橡皮擦',select:'移动/点选',marquee:'矩形框选',lasso:'自由套索',geometry:'几何编辑','panel-cut':'分镜切割','image-crop':'素材裁剪','image-mask':'素材遮罩',crop:'调整框内图片',text:'文字编辑','speed-brush':'速度线笔刷','bubble-brush':'手绘气泡'};
+const command:Partial<Record<string,CommandId>>={'flash-bubble':'tool-flash-bubble','paint-pen':'tool-paint-pen','paint-eraser':'tool-paint-eraser',select:'tool-select',marquee:'tool-marquee',lasso:'tool-lasso',geometry:'tool-geometry','panel-cut':'tool-panel-cut','image-crop':'tool-image-crop','image-mask':'tool-image-mask','bubble-brush':'tool-bubble-brush'};
 function notice(r:Result<unknown>){if(!r.ok)pushNotice('error',r.problems[0].message);}
 function Controls({disabled,bindings,prefix=''}:{disabled:boolean;bindings:Partial<Record<CommandId,string>>;prefix?:string}){
   const mode=useStore(sessionStore,s=>s.toolMode),gap=useStore(sessionStore,s=>s.panelCutGap);
@@ -25,6 +26,7 @@ function Controls({disabled,bindings,prefix=''}:{disabled:boolean;bindings:Parti
   const mask=useStore(maskEditStore,s=>!!s.active),target=useStore(maskEditStore,s=>s.active?.target),shape=useStore(maskEditStore,s=>{const a=s.active;return a?(a.preview.layers[a.imageId] as ImageLayer).mask?.shape:null;});
   const crop=useStore(cropEditStore,s=>!!s.active),trim=useStore(trimEditStore,s=>!!s.active),display=effectiveDisplayTool(mode,line,mask,crop,trim);
   const cutGap=lineGap??gap,cutError=error||(!Number.isFinite(cutGap)||cutGap<0||cutGap>256?'切割间隙须为0～256px':'');
+  if(display==='flash-bubble'||display==='paint-pen'||display==='paint-eraser')return <ComicToolOptions flash={display==='flash-bubble'} expanded={!!prefix}/>;
   if(display==='bubble-brush')return <BubbleBrushOptions expanded={!!prefix}/>;
   if(display==='marquee'||display==='lasso')return <AreaSelectionOptions moveBinding={bindings['tool-select']||''} labelPrefix={prefix}/>;
   if(display==='panel-cut')return <>

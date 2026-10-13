@@ -80,7 +80,7 @@ describe('comic manuscript setup and guides', () => {
   });
   it('upgrades old projects without injecting guides or changing pixels and rejects guide payloads in older schemas', () => {
     const p = createProject(); p.schemaVersion = 12; const before = structuredClone(p), r = migrateProject(p); if (!r.ok) throw Error(JSON.stringify(r));
-    expect(r.value.schemaVersion).toBe(13); expect(r.value.pages).toEqual(p.pages); expect(r.value.layers).toEqual(p.layers); expect(p).toEqual(before);
+    expect(r.value.schemaVersion).toBe(14); expect(r.value.pages).toEqual(p.pages); expect(r.value.layers).toEqual(p.layers); expect(p).toEqual(before);
     const comic = createProject({ comic: true }); comic.schemaVersion = 12; expect(validateProject(comic).ok).toBe(false);
     comic.schemaVersion = 13; expect(validateProject(comic).ok).toBe(true); comic.pages[comic.pageOrder[0]].manuscript!.bleedMm = 50; expect(validateProject(comic).ok).toBe(false);
   });

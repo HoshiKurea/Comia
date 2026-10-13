@@ -39,7 +39,8 @@ function needsReplay(project: Project, id: Id, clips = 0): boolean {
   if (layer.type === 'bubble' && bubbleInk(layer).length) return true;
   if (layer.type === 'text' && partial(layer.text.font.color)) return true;
   if(layer.presentation)return true;
-  if (layer.type === 'decoration' && (layer.spec.kind==='shape' ? partial(layer.spec.style.fill)||partial(layer.spec.style.borderColor) : partial(layer.spec.color))) return true;
+  if (layer.type === 'decoration' && layer.spec.kind==='paint') return true;
+  if (layer.type === 'decoration' && layer.spec.kind!=='paint' && (layer.spec.kind==='shape' ? partial(layer.spec.style.fill)||partial(layer.spec.style.borderColor) : partial(layer.spec.color))) return true;
   return 'children' in layer && layer.children.some((child) => needsReplay(project, child, clips));
 }
 
@@ -58,8 +59,9 @@ export function beginGestureRuns(base: Project, pageId: Id, affectedIds: Id[], v
   const runs: (StaticRun | DynamicRun)[] = [];
   if (page) for (const root of page.roots) {
     const kind = dynamic.has(root) ? 'dynamic' : 'static';
+    // Keep alpha-replay runs separate from unchanged opaque content.
     const last = runs[runs.length - 1];
-    if (last?.kind === kind) last.roots.push(root);
+    if (last?.kind === kind && (kind==='dynamic' || needsReplay(base,root)===needsReplay(base,last.roots[0]))) last.roots.push(root);
     else if (kind === 'dynamic') runs.push({ kind, roots: [root] });
     else runs.push({ kind, roots: [root], canvas: null, bounds: null });
   }

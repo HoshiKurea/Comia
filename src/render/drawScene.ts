@@ -1,3 +1,4 @@
+import {paintLayer,paintBackgroundFill,paintContains} from '../comicDrawing/paint';
 import { paintStyledOps } from '../appearance/compositor';
 import { paintFill, paintStroke, paintBorderRegion, customStroke } from '../appearance/paint';
 import { compositeMode,presentation } from '../appearance/model';
@@ -99,6 +100,11 @@ function drawText(ctx: CanvasRenderingContext2D, layer: Extract<Layer, { type: '
   ctx.restore();
 }
 
+function paintFlash(ctx:CanvasRenderingContext2D,b:Extract<Layer,{type:'bubble'}>,paths:readonly ShapePath[]):void {
+  if(!b.flash)return;
+  if(b.flash.background.slice(-2)!=='00'){ctx.fillStyle=b.flash.background;ctx.beginPath();ctx.ellipse(b.width/2,b.height/2,b.width/2+b.flash.length,b.height/2+b.flash.length,0,0,2*Math.PI);ctx.fill();}
+  ctx.fillStyle=b.style.borderColor;for(const path of paths){tracePath(ctx,path);ctx.fill();}
+}
 function drawOp(ctx: CanvasRenderingContext2D, project: Project, op: ScenePaintOp, images: ImageResources, prepared: SceneTextResources, opacity?: ReadonlyMap<Id, number>, cropGhostId?: Id): void {
   const id = op.layerId;
   const layer = project.layers[id];
@@ -112,6 +118,7 @@ function drawOp(ctx: CanvasRenderingContext2D, project: Project, op: ScenePaintO
     const geometry=prepared.dialogues.get(id);if(!geometry)throw Error('对白组缺少预编译资源');
     const spec=layer.dialogue;
     const fillRegion=(region:Parameters<typeof regionToPath>[0],color:string)=>{if(region.length)drawShape(ctx,regionToPath(region),color,'transparent',0);};
+    for(const cid of geometry.memberIds){const b=project.layers[cid],g=prepared.bubbles.get(cid);if(b.type==='bubble'&&g?.flashPaths){ctx.save();ctx.transform(...b.matrix);paintFlash(ctx,b,g.flashPaths);ctx.restore();}}
     if(spec.mode==='connector')fillRegion(geometry.lines,spec.fusionStyle.borderColor);
     if(spec.mode==='fused') {fillRegion(geometry.outer??[],spec.fusionStyle.outerStroke?.color??'transparent');if(geometry.fusionRegion)paintFill(ctx,regionToPath(geometry.fusionRegion),spec.fusionStyle.fill,layer);fillRegion(geometry.inner??[],spec.fusionStyle.innerStroke?.color??'transparent');if(customStroke(layer)&&geometry.fusionRegion)paintStroke(ctx,regionToPath(geometry.fusionRegion),spec.fusionStyle.borderColor,spec.fusionStyle.borderWidth,layer);else paintBorderRegion(ctx,regionToPath(geometry.border),spec.fusionStyle.borderColor,layer);fillRegion(geometry.lines,spec.fusionStyle.borderColor);}
     if(spec.mode==='overlap'){
@@ -164,7 +171,8 @@ function drawOp(ctx: CanvasRenderingContext2D, project: Project, op: ScenePaintO
     const geometry = prepared.bubbles.get(id);
     if (!geometry) throw new Error(`气泡“${layer.name}”缺少预编译轮廓`);
     if(geometry.outerRegion?.length)drawShape(ctx,regionToPath(geometry.outerRegion),layer.style.outerStroke!.color,'transparent',0);
-    paintFill(ctx,geometry.outline,layer.style.fill,layer);
+    if(geometry.flashPaths)paintFlash(ctx,layer,geometry.flashPaths);
+    if(!layer.flash||layer.flash.fillCenter)paintFill(ctx,geometry.outline,layer.style.fill,layer);
     if(geometry.borderRegion===undefined || customStroke(layer))paintStroke(ctx,geometry.outline,layer.style.borderColor,layer.style.borderWidth,layer);
     if(geometry.innerRegion?.length)drawShape(ctx,regionToPath(geometry.innerRegion),layer.style.innerStroke!.color,'transparent',0);
     if(geometry.borderRegion!==undefined&&!customStroke(layer))paintBorderRegion(ctx,regionToPath(geometry.borderRegion),layer.style.borderColor,layer);
@@ -182,7 +190,9 @@ function drawOp(ctx: CanvasRenderingContext2D, project: Project, op: ScenePaintO
   } else if (layer.type === 'text') drawText(ctx, layer, prepared);
   else if (layer.type === 'decoration') {
     const spec = layer.spec;
-    if (spec.kind === 'shape') {
+    if(spec.kind==='paint')paintLayer(ctx,spec);
+    else if(spec.kind==='background-fill')paintBackgroundFill(ctx,spec);
+    else if (spec.kind === 'shape') {
       const path=prepared.decorations.get(id)?.[0];if(!path)throw Error('形状缺少预编译轮廓');paintFill(ctx,path,spec.style.fill,layer);paintStroke(ctx,path,spec.style.borderColor,spec.style.borderWidth,layer,spec.geometry);
     } else if (spec.kind === 'sfx') {
       ctx.fillStyle = spec.color;
@@ -313,6 +323,8 @@ export function hitLayer(project: Project, pageId: Id, pagePoint: Point, scopeId
       if (bubbleInkContains(layer, local)) return id;
       for(const child of [...layer.children].reverse())if(project.layers[child]?.type==='bubbleTail'){const hit=visit(child,world);if(hit)return hit;}
       const geometry=composeBubble(project,id);if(!geometry.ok)return null;
+      if(layer.flash&&layer.flash.background.slice(-2)!=='00'&&((local.x-layer.width/2)/(layer.width/2+layer.flash.length))**2+((local.y-layer.height/2)/(layer.height/2+layer.flash.length))**2<=1)return id;
+      if(geometry.value.flashPaths?.some(path=>containsSimplePolygon(path.ops.filter((op):op is Extract<typeof op,{op:'M'|'L'}>=>op.op==='M'||op.op==='L').map(op=>op.p),local)))return id;
       if(regionContains(geometry.value.fillRegion,local)||regionContains(geometry.value.outerRegion??[],local)||regionContains(geometry.value.borderRegion??[],local))return id;
       if(geometry.value.borderRegion===undefined&&layer.style.borderWidth){const f=flattenForRender(geometry.value.outline);if(f.ok&&f.value.some(s=>s.points.some((p,i)=>i<s.points.length-1||s.closed?distanceToSegment(local,p,s.points[(i+1)%s.points.length])<=layer.style.borderWidth/2:false)))return id;}return null;
     }
@@ -328,6 +340,7 @@ export function hitLayer(project: Project, pageId: Id, pagePoint: Point, scopeId
       const tolerance=6/zoom;
       for(const region of geometry.value.fillRegions)for(const polygon of region)for(const ring of polygon)for(let i=0;i+1<ring.length;i++)if(distanceToSegment(point,apply(world,{x:ring[i][0],y:ring[i][1]}),apply(world,{x:ring[i+1][0],y:ring[i+1][1]}))<=tolerance)return id;
       return null;}
+    if(layer.spec.kind==='paint')return paintContains(layer.spec,local)?id:null;
     if(layer.spec.kind==='shape')return containsSimplePolygon(layer.spec.geometry,local)?id:null;
     if (layer.spec.kind === 'speed-brush') return speedBrushContains(layer.spec, local) ? id : null;
     return containsRect({ x: 0, y: 0, width: layer.spec.width, height: layer.spec.height }, local) ? id : null;

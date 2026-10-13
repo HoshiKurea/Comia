@@ -28,7 +28,7 @@ function line(a: Point, b: Point): ShapePath {
 }
 
 export function buildDecoration(spec: DecorationSpec): ShapePath[] {
-  if (spec.kind === 'sfx') return [];
+  if (spec.kind === 'sfx' || spec.kind === 'paint' || spec.kind === 'background-fill') return [];
   if (spec.kind === 'shape') return [buildRoundedPolygon(spec.geometry, spec.style.borderRadius)];
   if (spec.kind === 'speed-brush') return spec.ribbons.map(ring => {
     const points = ring.map(p => ({ x: p.x * spec.width, y: p.y * spec.height }));

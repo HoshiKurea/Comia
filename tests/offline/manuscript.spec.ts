@@ -12,7 +12,7 @@ test('production offline comic setup and saved guides reopen; actual PNG and all
   await expect(dialog.getByLabel('新项目纸张',{exact:true})).toHaveValue('comic-B5'); await expect(dialog.getByLabel('新项目单位')).toHaveValue('mm'); await expect(dialog.getByText(/装订|成品/)).toHaveCount(0);
   await dialog.getByLabel('新项目名称').fill('离线原稿'); await dialog.getByRole('button', { name: '创建项目', exact: true }).click(); await expect(dialog).toHaveCount(0);
   const download = page.waitForEvent('download'); await (await menuCommand(page, '保存')).click(); const saved = await readFile((await (await download).path())!);
-  const envelope = JSON.parse(saved.toString()); expect(envelope.project.schemaVersion).toBe(13); expect(envelope.project.pageOrder).toHaveLength(8);
+  const envelope = JSON.parse(saved.toString()); expect(envelope.project.schemaVersion).toBe(14); expect(envelope.project.pageOrder).toHaveLength(8);
   for (const id of envelope.project.pageOrder) expect(envelope.project.pages[id]).toMatchObject({ width: 4961, height: 7016, dpi: 600, manuscript: { trim: { widthMm: 182, heightMm: 257 }, bleedMm: 5, basicFrame: { widthMm: 149, heightMm: 219 } } });
   await page.locator('input[type=file][accept*=json]').setInputFiles({ name: '原稿.Comia.json', mimeType: 'application/json', buffer: saved }); await waitForProjectIO(page);
   await page.getByRole('tab', { name: '页面', exact: true }).click(); await expect(page.locator('.page-guide-overlay')).toHaveCount(8);

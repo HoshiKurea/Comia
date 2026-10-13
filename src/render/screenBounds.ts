@@ -75,7 +75,7 @@ export function layerScreenBounds(project: Project, id: Id, viewport: Viewport):
       } else points = rectPoints({ x: 0, y: 0, width: Math.max(spec.width, spec.content.length * spec.fontSize), height: spec.fontSize * 1.25 });
       canvas.width = canvas.height = 0;
       stroke = spec.outlineWidth;
-    } else { points = rectPoints({ x: 0, y: 0, width: spec.width, height: spec.height }); stroke = spec.kind === 'speed-brush' ? 0 : spec.strokeWidth; }
+    } else { points = rectPoints({ x: 0, y: 0, width: spec.width, height: spec.height }); stroke = spec.kind === 'speed-brush' || spec.kind==='paint' || spec.kind==='background-fill' ? 0 : spec.strokeWidth; }
   }
   else if (layer.type === 'bubble') {
     const geometry = composeBubble(project,id);

@@ -2,6 +2,7 @@ import { expect, type Page } from '@playwright/test';
 export async function initHandBubble(page: Page) {
   await page.goto('/'); await expect(page.getByRole('toolbar', { name: '绘图工具' })).toBeVisible();
   await page.evaluate(async () => {
+    const brush=await import('/src/'+'bubbles/brushController.ts'),defaults=await import('/src/'+'bubbles/brushOptions.ts');brush.setBubbleBrushOptions({...defaults.DEFAULT_BUBBLE_BRUSH,pen:{stabilization:0,postCorrection:0,sharpCorners:true,pressure:false}});
     const p = (await import('/src/' + 'domain/factories.ts')).createProject({ background: false }), pid = p.pageOrder[0]; Object.assign(p.pages[pid], { width: 640, height: 480, dpi: 72 });
     const r = (await import('/src/' + 'history/commandBus.ts')).replaceDocument(p); if (!r.ok) throw Error(JSON.stringify(r));
     (await import('/src/' + 'state/sessionStore.ts')).sessionStore.setState({ activePageId: pid, selection: [], scopeId: null, toolMode: 'select', snap16: false, viewportByPage: { [pid]: { zoom: 1, pan: { x: 20, y: 20 } } } });

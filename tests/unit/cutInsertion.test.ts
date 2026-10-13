@@ -59,9 +59,9 @@ it('migrates format8 without renumbering and round trips format9 metadata', () =
   const a = add(), b = add(), old = structuredClone(getProject()); old.schemaVersion = 8;
   delete (old.layers[a] as PanelLayer).nameMode; delete (old.layers[b] as PanelLayer).nameMode; old.layers[b].name = '特写';
   const original = structuredClone(old), migrated = migrateProject(old); expect(migrated.ok).toBe(true); if (!migrated.ok) return;
-  expect(old).toEqual(original); expect(migrated.value.schemaVersion).toBe(13); expect((migrated.value.layers[a] as PanelLayer).nameMode).toBe('automatic'); expect((migrated.value.layers[b] as PanelLayer).nameMode).toBe('custom');
+  expect(old).toEqual(original); expect(migrated.value.schemaVersion).toBe(14); expect((migrated.value.layers[a] as PanelLayer).nameMode).toBe('automatic'); expect((migrated.value.layers[b] as PanelLayer).nameMode).toBe('custom');
   expect(migrateProject(migrated.value)).toEqual(migrated); expect(validateProject(migrated.value).ok).toBe(true);
-  expect(validateProject({ ...migrated.value, schemaVersion: 14 }).ok).toBe(false);
+  expect(validateProject({ ...migrated.value, schemaVersion: 15 }).ok).toBe(false);
 });
 it.each([0, 20000])('keeps legacy owned text with width %s instead of rejecting an older valid file', width => {
   const p = createProject(); p.schemaVersion = 8; const pid = p.pageOrder[0], bubble = createLayer('bubble',pid), text = createLayer('text',pid);

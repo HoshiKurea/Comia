@@ -1,3 +1,6 @@
+import {recordedOutlineStroke,compoundPressureStrokes} from '../comicDrawing/outlinePressure';
+import {strokeRegion} from '../freehand/geometry';
+import {flashPaths} from '../comicDrawing/geometry';
 import type { BubbleLayer, Id, Project, Result } from '../domain/types';
 import { fail, ok, problem } from '../domain/types';
 import type { ShapePath } from '../geometry/types';
@@ -14,7 +17,7 @@ import { unionBounds } from '../geometry/bounds';
 import { bubbleShapeSource } from './inkPaint';
 
 export interface MangaBubbleGeometry extends BubbleGeometry {
-  body: ShapePath; fillRegion: Region; borderRegion?: Region; innerRegion?:Region;outerRegion?:Region;
+  flashPaths?: ShapePath[]; body: ShapePath; fillRegion: Region; borderRegion?: Region; innerRegion?:Region;outerRegion?:Region;
   tails: PreparedTail[]; bounds: ShapePath['bounds'];
 }
 const cache=new Map<string,{id:Id;geometry:MangaBubbleGeometry;bytes:number}>();let cacheBytes=0;
@@ -28,9 +31,9 @@ export function composeBubble(project: Pick<Project,'layers'|'schemaVersion'>,id
   if(target.localToOutput.length!==6||target.localToOutput.some(v=>!Number.isFinite(v)))return fail(problem('geometry/target','输出坐标矩阵须为六个有限数值'));
   target={...target,localToOutput:[target.localToOutput[0],target.localToOutput[1],target.localToOutput[2],target.localToOutput[3],0,0]};
   const b=project.layers[id];if(b?.type!=='bubble')return fail(problem('bubble/target','主体已不存在'));
-  const key=JSON.stringify([id,project.schemaVersion,b.shape,b.width,b.height,b.style,b.handDrawn,b.contour,bubbleShapeSource(b.freehandSource),b.edgeStyle,b.tail,bubbleTails(project,id).map(({appearance,attachment,tip,route,beads,zigzag,legacySplice,visible})=>[appearance,attachment,tip,route,beads,zigzag,legacySplice,visible]),target]);
+  const key=JSON.stringify([id,project.schemaVersion,b.shape,b.width,b.height,b.style,b.handDrawn,b.contour,bubbleShapeSource(b.freehandSource),b.edgeStyle,b.penOutline,b.flash,b.tail,bubbleTails(project,id).map(({appearance,attachment,tip,route,beads,zigzag,legacySplice,visible})=>[appearance,attachment,tip,route,beads,zigzag,legacySplice,visible]),target]);
   const entry=cache.get(key);if(entry){cache.delete(key);cache.set(key,entry);return ok(entry.geometry);}
-  const result=composeUncached(project,id,target);if(result.ok){const bytes=128*(regionEdges(result.value.fillRegion)+regionEdges(result.value.borderRegion??[])+regionEdges(result.value.innerRegion??[])+regionEdges(result.value.outerRegion??[])+result.value.outline.ops.length+result.value.tails.reduce((n,t)=>n+t.samples.length+t.fillRegions.reduce((s,r)=>s+regionEdges(r),0),0));if(bytes<=16*1024*1024){const prior=variants.get(id)??[];while(prior.length>=4){const oldest=prior.shift()!;evict(oldest);}cache.set(key,{id,geometry:result.value,bytes});cacheBytes+=bytes;variants.set(id,[...prior,key]);while(cache.size>128||cacheBytes>16*1024*1024)evict(cache.keys().next().value!);}}return result;
+  const result=composeUncached(project,id,target);if(result.ok&&b.flash){try{const paths=flashPaths(b.width,b.height,b.flash),halo=b.flash.background.slice(-2)!=='00'?[{x:-b.flash.length,y:-b.flash.length,width:b.width+2*b.flash.length,height:b.height+2*b.flash.length}]:[];result.value={...result.value,flashPaths:paths,bounds:unionBounds([result.value.bounds,...paths.map(p=>p.bounds),...halo])!};}catch(e){return fail(problem('flash/budget',(e as Error).message));}}if(result.ok){const bytes=128*(regionEdges(result.value.fillRegion)+regionEdges(result.value.borderRegion??[])+regionEdges(result.value.innerRegion??[])+regionEdges(result.value.outerRegion??[])+result.value.outline.ops.length+(result.value.flashPaths?.reduce((n,p)=>n+p.ops.length,0)??0)+result.value.tails.reduce((n,t)=>n+t.samples.length+t.fillRegions.reduce((s,r)=>s+regionEdges(r),0),0));if(bytes<=16*1024*1024){const prior=variants.get(id)??[];while(prior.length>=4){const oldest=prior.shift()!;evict(oldest);}cache.set(key,{id,geometry:result.value,bytes});cacheBytes+=bytes;variants.set(id,[...prior,key]);while(cache.size>128||cacheBytes>16*1024*1024)evict(cache.keys().next().value!);}}return result;
 }
 function composeUncached(project:Pick<Project,'layers'|'schemaVersion'>,id:Id,target:GeometryTarget):Result<MangaBubbleGeometry>{
   const bubble=project.layers[id];if(bubble?.type!=='bubble')return fail(problem('bubble/target','主体已不存在'));
@@ -48,7 +51,7 @@ function composeUncached(project:Pick<Project,'layers'|'schemaVersion'>,id:Id,ta
   // A fixed-width stroke on a simple derived body needs no polygon union.
   // Canvas draws the same rounded center stroke directly, at the full output
   // precision. Keep legacy/pressure/band/tail paths on their regional contract.
-  if(!hasStrokeBands(bubble.style) && !bubble.handDrawn?.pressure && children.length===0 && !legacy){
+  if(!hasStrokeBands(bubble.style) && !bubble.handDrawn?.pressure && !bubble.penOutline && children.length===0 && !legacy){
     const r=bubble.style.borderWidth/2,b=body.bounds;
     return ok({outline:body,tailLine:null,textBox:base.value.textBox,body,fillRegion:fillBase.value,tails:[],bounds:{x:b.x-r,y:b.y-r,width:b.width+2*r,height:b.height+2*r}});
   }
@@ -59,7 +62,7 @@ function composeUncached(project:Pick<Project,'layers'|'schemaVersion'>,id:Id,ta
   }
   const fill=checkedUnion(regions);if(!fill.ok)return fill;
   const strokeTarget=hasStrokeBands(bubble.style)||bubble.edgeStyle?.wobble?{...target,tolerancePx:target.tolerancePx/2}:target;const outline=regionToPath(fill.value),bands=hasStrokeBands(bubble.style)?buildBubbleStrokeBands(fill.value,bubble.style,bubble.handDrawn?.pressure??0,bubble.handDrawn?.seed??42,strokeTarget):null;if(bands&&!bands.ok)return bands;const stroke=bands?.ok?ok(bands.value.center):buildPressureRibbon(outline,bubble.style.borderWidth,bubble.handDrawn?.pressure??0,bubble.handDrawn?.seed??42,strokeTarget);if(!stroke.ok)return stroke;
-  const strokeRegions=[stroke.value];
+  const record=bubble.penOutline&&bubble.freehandSource&&bubble.style.borderWidth?recordedOutlineStroke(bubble,body,strokeTarget):null;if(record&&!record.ok)return record;let recorded:Result<Region>|null=null;if(record?.ok){if(children.length||legacy){const strokes=compoundPressureStrokes(record.value,outline,strokeTarget);if(!strokes.ok)return strokes;const regions:Region[]=[];for(const s of strokes.value){const r=strokeRegion(s,strokeTarget);if(!r.ok)return r;regions.push(r.value);}recorded=checkedUnion(regions);}else recorded=strokeRegion(record.value,strokeTarget);}if(recorded&&!recorded.ok)return recorded;const strokeRegions=[recorded?.ok?recorded.value:stroke.value];
   for(const line of lines){const border=buildPressureRibbon(line,bubble.style.borderWidth,bubble.handDrawn?.pressure??0,bubble.handDrawn?.seed??42,strokeTarget);if(!border.ok)return border;strokeRegions.push(border.value);}
   const border=checkedUnion(strokeRegions);if(!border.ok)return border;
   const bounds=unionBounds([...(bands?.ok?[bands.value.bounds]:[]),regionBounds(fill.value),...(border.value.length?[regionBounds(border.value)]:[])]);

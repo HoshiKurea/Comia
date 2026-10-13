@@ -3,7 +3,7 @@
  */
 import type { Id, Layer, Point } from '../domain/types';
 
-export type ToolMode = 'select' | 'panel-cut' | 'image-crop' | 'image-mask' | 'marquee' | 'lasso' | 'geometry' | 'crop' | 'text' | 'speed-brush' | 'bubble-brush';
+export type ToolMode = 'select' | 'panel-cut' | 'image-crop' | 'image-mask' | 'marquee' | 'lasso' | 'geometry' | 'crop' | 'text' | 'speed-brush' | 'bubble-brush' | 'flash-bubble' | 'paint-pen' | 'paint-eraser';
 
 export type GestureKind = 'move' | 'resize' | 'rotate' | 'vertex' | 'edge' | 'crop' | 'tail' | 'create';
 

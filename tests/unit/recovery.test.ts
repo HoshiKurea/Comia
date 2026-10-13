@@ -21,7 +21,7 @@ describe('automatic local recovery', () => {
   it('restores legacy drafts as editable schema seven and rejects an unknown version without replacing current work', async () => {
     installRecovery(); expect((await listRecoveries()).ok).toBe(true); const legacy = toLegacy(createProject(), 1); const key = `${legacy.id}:legacy-extension`;
     await putDraft(key, legacy, crypto.randomUUID()); replaceDocument(createProject());
-    expect((await restoreRecovery(key)).ok).toBe(true); expect(getProject().schemaVersion).toBe(13); expect(toLegacy(getProject(), 1)).toEqual(legacy); expect(legacy.schemaVersion).toBe(1);
+    expect((await restoreRecovery(key)).ok).toBe(true); expect(getProject().schemaVersion).toBe(14); expect(toLegacy(getProject(), 1)).toEqual(legacy); expect(legacy.schemaVersion).toBe(1);
     const before = getDocument(), broken = { ...legacy, schemaVersion: 8 } as unknown as ReturnType<typeof createProject>;
     await putDraft(`${key}:invalid`, broken, crypto.randomUUID()); expect((await restoreRecovery(`${key}:invalid`)).ok).toBe(false);
     expect(getDocument()).toBe(before); await discardRecovery(key); await discardRecovery(`${key}:invalid`);

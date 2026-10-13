@@ -8,7 +8,8 @@ import { migrationId } from '../domain/id';
 import { completeExtensionProject } from '../domain/extensionDefaults';
 /** Validate the old convex contract before upgrading; never mutates caller data. */
 export function migrateProject(input: unknown): Result<Project> {
-  const checked = validateProject(input); if (!checked.ok || checked.value.schemaVersion === 13) return checked;
+  const checked = validateProject(input); if (!checked.ok || checked.value.schemaVersion === 14) return checked;
+  if (checked.value.schemaVersion === 13) return upgradeTo14(checked.value);
   if (checked.value.schemaVersion === 12) return upgradeTo13(checked.value);
   if (checked.value.schemaVersion === 11) return upgradeTo12(checked.value);
   if (checked.value.schemaVersion === 10) return upgradeTo11(checked.value);
@@ -116,4 +117,6 @@ function upgradeTo11(source: Project): Result<Project> {
 
 function upgradeTo12(source: Project): Result<Project> { const project=structuredClone(source); project.schemaVersion=12; const checked=validateProject(project); return checked.ok ? upgradeTo13(checked.value) : checked; }
 /** Existing pages keep their dimensions, dpi, artwork and absence of guides. */
-function upgradeTo13(source: Project): Result<Project> { const project=structuredClone(source); project.schemaVersion=13; return validateProject(project); }
+function upgradeTo13(source: Project): Result<Project> { const project=structuredClone(source); project.schemaVersion=13; const checked=validateProject(project); return checked.ok ? upgradeTo14(checked.value) : checked; }
+
+function upgradeTo14(source: Project): Result<Project> { const project=structuredClone(source); project.schemaVersion=14; return validateProject(project); }

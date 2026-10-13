@@ -52,8 +52,8 @@ export function generateContour(bubble: BodyInput): Result<BubbleContour> {
   const hand=bubble.handDrawn??handDrawnPreset('soft'), n=bubble.shape==='cloud'||bubble.shape==='spiky'||bubble.shape==='wave'?24:hand.preset==='rough'?16:12;
   const random=mulberry32(hand.seed), phases=Array.from({length:4},()=>random()*2*Math.PI);
   let source:Point[]|null=null;
-  if(['rect','roundRect','circle'].includes(bubble.shape)){
-    const flat=flattenForBoolean(legacyBodyPath(bubble.shape as 'rect'|'roundRect'|'circle',bubble.width,bubble.height,bubble.style));if(!flat.ok)return flat;source=flat.value[0];
+  if(['rect','roundRect','circle','ellipse'].includes(bubble.shape)){
+    const flat=flattenForBoolean(legacyBodyPath((bubble.shape==='ellipse'?'circle':bubble.shape) as 'rect'|'roundRect'|'circle',bubble.width,bubble.height,bubble.style));if(!flat.ok)return flat;source=flat.value[0];
   }
   for(let attempt=0;attempt<8;attempt++){
     const q=hand.irregularity*2**(-attempt),j=hand.wobble*2**(-attempt);
@@ -77,7 +77,7 @@ export function mangaBaseBodyPath(bubble: BodyInput): Result<ShapePath> {
   // generateContour would validate, clone, and then validate the same curve
   // again. Keep the complete legality/bounds/self-intersection checks.
   if(bubble.contour)return buildContourPath(bubble.contour,bubble.width,bubble.height,bubble.shape==='spiky');
-  if(!bubble.contour&&(!bubble.handDrawn||bubble.handDrawn.wobble===0&&bubble.handDrawn.irregularity===0)&&['rect','roundRect','circle','cloud','spiky'].includes(bubble.shape))return ok(legacyBodyPath(bubble.shape as 'rect'|'roundRect'|'circle'|'cloud'|'spiky',bubble.width,bubble.height,bubble.style));
+  if(!bubble.contour&&(!bubble.handDrawn||bubble.handDrawn.wobble===0&&bubble.handDrawn.irregularity===0)&&['rect','roundRect','circle','ellipse','cloud','spiky'].includes(bubble.shape))return ok(legacyBodyPath((bubble.shape==='ellipse'?'circle':bubble.shape) as 'rect'|'roundRect'|'circle'|'cloud'|'spiky',bubble.width,bubble.height,bubble.style));
   const contour=generateContour(bubble);return contour.ok?buildContourPath(contour.value,bubble.width,bubble.height,bubble.shape==='spiky'):contour;
 }
 export function mangaBodyPath(bubble:BodyInput,target:GeometryTarget=LOCAL_TARGET):Result<ShapePath>{

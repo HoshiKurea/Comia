@@ -71,10 +71,10 @@ export function applyHandDrawnPreset(preset:'soft'|'rough'):Result<void>{return 
 export function regenerateBubbleContour():Result<void>{return updateShape(b=>{b.contour=null;b.handDrawn={...(b.handDrawn??handDrawnPreset('soft')),seed:(b.handDrawn?.seed??42)+1>>>0};if(b.edgeStyle?.recipe==='normal-offset-v1')b.edgeStyle={...b.edgeStyle,seed:b.handDrawn.seed};});}
 export function resetBubbleShape():Result<void>{return updateShape(b=>{b.contour=null;b.handDrawn=null;b.edgeStyle={recipe:'normal-offset-v1',wobble:0,seed:b.edgeStyle?.seed??42};if(['handOval','handPolygon','wave'].includes(b.shape))b.shape='roundRect';});}
 export function setEditedBubbleShape(shape:BubbleShape):Result<void>{
-  if(!['rect','roundRect','circle','cloud','spiky','handOval','handPolygon','wave'].includes(shape))return fail(problem('bubble/shape','未知气泡形状'));
+  if(!['rect','roundRect','circle','cloud','spiky','ellipse','handOval','handPolygon','wave'].includes(shape))return fail(problem('bubble/shape','未知气泡形状'));
   return updateShape(b=>{
     if(shape==='circle'&&b.width!==b.height){const w=Math.max(b.width,b.height),dx=(b.width-w)/2,dy=(b.height-w)/2;b.matrix=[b.matrix[0],b.matrix[1],b.matrix[2],b.matrix[3],b.matrix[4]+b.matrix[0]*dx+b.matrix[2]*dy,b.matrix[5]+b.matrix[1]*dx+b.matrix[3]*dy];b.width=b.height=w;}
-    b.shape=shape;b.contour=null;delete b.freehandSource;if(['handOval','handPolygon','wave'].includes(shape)&&!b.handDrawn)b.handDrawn=handDrawnPreset('soft');
+    b.shape=shape;b.contour=null;delete b.freehandSource;delete b.penOutline;if(['handOval','handPolygon','wave'].includes(shape)&&!b.handDrawn)b.handDrawn=handDrawnPreset('soft');
   });
 }
 export function currentBubbleShapeEdit(){const active=currentMangaEdit();return active?.kind==='shape'?active:null;}

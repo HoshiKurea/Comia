@@ -1,0 +1,5 @@
+.comic-brush-preview{display:block;width:100%;max-width:280px;height:110px;border:1px solid var(--border);border-radius:4px;background:repeating-conic-gradient(var(--surface) 0% 25%,var(--border) 0% 50%) 0 0 / 16px 16px}
+.comic-properties{display:flex;flex-direction:column;gap:9px;padding:12px 0}
+.comic-properties h4{margin:0;font-size:13px}
+.comic-properties>label{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:12px}
+.comic-properties>label>select{max-width:65%}

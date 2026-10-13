@@ -17,6 +17,7 @@ Comia 将分镜、图片素材、气泡、文字与装饰组织成可独立编�
 | 启动应用，完成第一张漫画 | [快速上手](docs/guide/getting-started.md) |
 | 查找某个功能的具体操作 | [完整使用手册](docs/guide/user-guide.md) |
 | 画开口轮廓生成气泡，继续画擦细节 | [主画布手绘气泡](docs/guide/hand-bubbles.md) |
+| 气泡笔刷、效果线、栅格／矢量与网点 | [漫画绘画工具](docs/guide/comic-drawing.md) |
 | 用多色画笔创作和重画素材 | [自由绘画窗口](docs/guide/drawing-window.md) |
 | 新建漫画、出血和编辑定位线 | [漫画原稿设置](docs/guide/manuscript.md) |
 | 九点变换、描边、效果和外观预设 | [属性面板](docs/guide/properties.md) |

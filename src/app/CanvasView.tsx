@@ -1,3 +1,5 @@
+import {ComicDrawSurface} from '../comicDrawing/ComicDrawSurface';
+import {comicDrawStore,currentComicDraw} from '../comicDrawing/controller';
 import {geometryPanel,setGeometry,rectangleVertex} from '../appearance/geometry';
 import {propertyAnchor} from '../appearance/commands';
 import {appearanceEditStore,currentAppearanceEdit,cancelAppearanceEdit} from '../appearance/commands';
@@ -158,6 +160,9 @@ export function CanvasView({ onEditText,areaDisabled=false }: { onEditText: (id:
   const mangaEditing=useStore(mangaEditStore,state=>state.active!==null),mangaRuns=useRef<GestureRuns|null>(null);
   const brushEditing = useStore(speedBrushStore, state => state.active !== null);
   const bubbleBrushEditing=useStore(bubbleBrushStore,s=>!!s.active?.valid),bubbleBrushRuns=useRef<GestureRuns|null>(null);
+  const comicEditing=useStore(comicDrawStore,s=>!!s.active?.valid);
+  const comicRuns=useRef<ReturnType<typeof beginGestureRuns>|null>(null);
+  useEffect(()=>{const off=comicDrawStore.subscribe(()=>{gestureLayer.current?.batchDraw();});return()=>{off();disposeGestureRuns(comicRuns.current);};},[]);
   useEffect(()=>{const off=bubbleBrushStore.subscribe(()=>{if(currentBubbleBrush()?.valid)gestureLayer.current?.batchDraw();});return()=>{off();disposeGestureRuns(bubbleBrushRuns.current);};},[]);
   useEffect(()=>{if(!appearanceEditing){disposeGestureRuns(appearanceRuns.current);appearanceRuns.current=null;}},[appearanceEditing]);
   const brushRuns = useRef<GestureRuns | null>(null);
@@ -378,6 +383,7 @@ export function CanvasView({ onEditText,areaDisabled=false }: { onEditText: (id:
     // keep the original complete-clear behavior on this same independent layer.
     paintedContour.current = null; ctx._context.clearRect(0, 0, size.width, size.height);
     const appearance=currentAppearanceEdit();if(appearance?.pageId===pageId){const cache=appearanceRuns.current;if(!cache||cache.base!==appearance.base||cache.viewport!==vp||cache.width!==size.width||cache.height!==size.height){disposeGestureRuns(cache);appearanceRuns.current=beginGestureRuns(appearance.base,pageId,appearance.ids,vp,size,images);}const started=performance.now();drawGestureRuns(ctx._context,appearanceRuns.current!,appearance.preview,images);addGestureDraws(1);recordDrawingFrame(started);return;}
+    const comic=currentComicDraw();if(comic?.valid){const started=performance.now(),cache=comicRuns.current;if(!cache||cache.base!==comic.sceneBase||cache.viewport!==vp){disposeGestureRuns(cache);comicRuns.current=beginGestureRuns(comic.sceneBase,pageId,[comic.layerId],vp,size,images);}drawGestureRuns(ctx._context,comicRuns.current!,comic.preview,images);addGestureDraws(1);recordDrawingFrame(started);return;}
     const bubbleBrush=currentBubbleBrush();if(bubbleBrush?.valid){const started=performance.now(),cache=bubbleBrushRuns.current;if(!cache||cache.base!==bubbleBrush.sceneBase||cache.viewport!==vp){disposeGestureRuns(cache);bubbleBrushRuns.current=beginGestureRuns(bubbleBrush.sceneBase,pageId,[bubbleBrush.layerId],vp,size,images);}drawGestureRuns(ctx._context,bubbleBrushRuns.current!,bubbleBrush.preview,images);addGestureDraws(1);recordDrawingFrame(started);return;}
     const brush = currentSpeedStroke();
     if (brush?.pageId === pageId) {
@@ -1011,10 +1017,10 @@ export function CanvasView({ onEditText,areaDisabled=false }: { onEditText: (id:
     }}>
     <div ref={paperDisplay} className="page-transparency" aria-hidden="true" style={{ left: vp.pan.x, top: vp.pan.y, width: (page?.width ?? 0) * vp.zoom, height: (page?.height ?? 0) * vp.zoom }} />
     <Stage width={size.width} height={size.height}>
-      <Layer listening={false} visible={!appearanceEditing && !previewActive && !textEditingId && !keyboardMoving && !nodeEditing && !styleEditing && !backgroundEditing && !cropEditing && !contourEditing && !trimEditing && !maskEditing && !breakoutEditing && !mangaEditing && !brushEditing && !bubbleBrushEditing}>
-        <Shape sceneFunc={(ctx) => { if (currentAppearanceEdit() || previewActive || previewRef.current || currentBubbleBrush()?.valid || currentSpeedStroke() || currentMangaEdit() || currentImageTrim() || currentBreakoutEdit() || currentBackgroundEdit() || currentMaskEdit() || currentPanelStyle() || currentCropEdit() || currentDrawing()?.kind === 'edit') return; draw(ctx, project); addMainDraws(1); }} />
+      <Layer listening={false} visible={!appearanceEditing && !previewActive && !textEditingId && !keyboardMoving && !nodeEditing && !styleEditing && !backgroundEditing && !cropEditing && !contourEditing && !trimEditing && !maskEditing && !breakoutEditing && !mangaEditing && !brushEditing && !bubbleBrushEditing && !comicEditing}>
+        <Shape sceneFunc={(ctx) => { if (currentComicDraw()?.valid || currentAppearanceEdit() || previewActive || previewRef.current || currentBubbleBrush()?.valid || currentSpeedStroke() || currentMangaEdit() || currentImageTrim() || currentBreakoutEdit() || currentBackgroundEdit() || currentMaskEdit() || currentPanelStyle() || currentCropEdit() || currentDrawing()?.kind === 'edit') return; draw(ctx, project); addMainDraws(1); }} />
       </Layer>
-      <Layer ref={gestureLayer} listening={false} clearBeforeDraw={false} visible={appearanceEditing || previewActive || Boolean(textEditingId) || keyboardMoving || nodeEditing || styleEditing || backgroundEditing || cropEditing || contourEditing || trimEditing || maskEditing || breakoutEditing || mangaEditing || brushEditing || bubbleBrushEditing}>
+      <Layer ref={gestureLayer} listening={false} clearBeforeDraw={false} visible={appearanceEditing || previewActive || Boolean(textEditingId) || keyboardMoving || nodeEditing || styleEditing || backgroundEditing || cropEditing || contourEditing || trimEditing || maskEditing || breakoutEditing || mangaEditing || brushEditing || bubbleBrushEditing || comicEditing}>
         <Shape sceneFunc={drawGesture} />
       </Layer>
       <Layer ref={creationLayer} listening={false}>
@@ -1047,7 +1053,7 @@ export function CanvasView({ onEditText,areaDisabled=false }: { onEditText: (id:
           }
           if(selection.length>1&&mode!=='speed-brush'&&!textEditingId&&!maskEditing&&!breakoutEditing&&!currentMangaEdit()){const source=currentPanelStyle()?.preview??currentNodeEdit()?.preview??currentKeyboardMove()?.preview??previewRef.current??project;const viewport=(panRef.current??wheelRef.current??pinchRef.current)?.viewport??vp;drawSelectionOutlines(ctx._context,selectionOutlines(source,pageId,selection,viewport));}
           if(isAreaTool(mode)||mode==='panel-cut'||(mode==='image-crop'||mode==='image-mask')){if(selection.length===1)drawSelectionOutlines(ctx._context,selectionOutlines(project,pageId,selection,vp));return;}
-          if (!selected || (mode === 'speed-brush'||mode==='bubble-brush') || textEditingId || trimEditing || maskEditing || breakoutEditing || currentMangaEdit() || selection.length===1&&project.layers[selected]?.type==='bubbleTail') return;
+          if (!selected || (mode === 'speed-brush'||mode==='bubble-brush'||mode==='flash-bubble'||mode==='paint-pen'||mode==='paint-eraser') || textEditingId || trimEditing || maskEditing || breakoutEditing || currentMangaEdit() || selection.length===1&&project.layers[selected]?.type==='bubbleTail') return;
           if (project.layers[selected]?.type === 'pageBackground') {
             if(selection.length>1)return;
             const raw = ctx._context; raw.save(); raw.strokeStyle = '#e47651'; raw.lineWidth = 1; raw.setLineDash([5, 3]); raw.strokeRect(vp.pan.x, vp.pan.y, page!.width * vp.zoom, page!.height * vp.zoom); raw.restore(); return;
@@ -1110,9 +1116,10 @@ export function CanvasView({ onEditText,areaDisabled=false }: { onEditText: (id:
     </Stage>
     <DrawingSurface viewport={vp} />
     {mode === 'speed-brush' && !textEditingId && <SpeedBrushSurface viewport={vp} />}
+    {(mode==='flash-bubble'||mode==='paint-pen'||mode==='paint-eraser')&&!textEditingId&&<ComicDrawSurface viewport={vp}/>}
     {mode==='bubble-brush'&&!textEditingId&&<BubbleBrushSurface viewport={vp}/>}
     <MangaEditPanel />
-    {selection.length===1&&selected&&!isAreaTool(mode)&&mode!=='panel-cut'&&mode!=='image-crop'&&mode!=='image-mask'&&mode!=='bubble-brush'&&mode!=='speed-brush'&&!maskEditing&&!breakoutEditing&&!textEditingId&&(project.layers[selected]?.type==='bubbleTail'||mangaEditing&&currentMangaEdit()?.kind==='shape'?[selected]:!mangaEditing&&project.layers[selected]?.type==='bubble'?(project.layers[selected] as import('../domain/types').BubbleLayer).children.filter(cid=>project.layers[cid]?.type==='bubbleTail'):[]).map(id=><MangaGeometryEditor key={id} id={id} project={project} viewport={vp}/>)}
+    {selection.length===1&&selected&&!isAreaTool(mode)&&mode!=='panel-cut'&&mode!=='image-crop'&&mode!=='image-mask'&&mode!=='bubble-brush'&&mode!=='flash-bubble'&&mode!=='paint-pen'&&mode!=='paint-eraser'&&mode!=='speed-brush'&&!maskEditing&&!breakoutEditing&&!textEditingId&&(project.layers[selected]?.type==='bubbleTail'||mangaEditing&&currentMangaEdit()?.kind==='shape'?[selected]:!mangaEditing&&project.layers[selected]?.type==='bubble'?(project.layers[selected] as import('../domain/types').BubbleLayer).children.filter(cid=>project.layers[cid]?.type==='bubbleTail'):[]).map(id=><MangaGeometryEditor key={id} id={id} project={project} viewport={vp}/>)}
     <CanvasContextMenu viewport={vp} pageId={pageId} />
     {breakoutEditing && <BreakoutEditor viewport={vp} />}
     {trimEditing && <TrimEditor viewport={vp}/> }

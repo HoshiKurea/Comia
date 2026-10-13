@@ -49,7 +49,7 @@ export function resizeProject(start: Project, id: Id, next: Rect): Result<Projec
   const kx = next.width / box.width, ky = next.height / box.height;
   const affine = multiply(multiply(translation(next.x, next.y), scaling(kx, ky)), translation(-box.x, -box.y));
   const project = { ...start, layers: { ...start.layers } }, target = structuredClone(layer); project.layers[id] = target;
-  if (target.type === 'group' || target.type === 'image' || target.type === 'bubbleTail' || target.type==='decoration'&&target.spec.kind==='shape') target.matrix = multiply(layer.matrix, affine);
+  if (target.type === 'group' || target.type === 'image' || target.type === 'bubbleTail' || target.type==='decoration'&&(target.spec.kind==='shape'||target.spec.kind==='paint'||target.spec.kind==='background-fill')) target.matrix = multiply(layer.matrix, affine);
   else if (target.type === 'panel') {
     const visit = (panelId: Id) => {
       const original = start.layers[panelId]; if (original.type !== 'panel') return;

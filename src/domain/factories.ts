@@ -54,7 +54,7 @@ export function createProject(options?: { background?: boolean; comic?: boolean 
   const background = createPageBackground(page.id);
   if (options?.background !== false) page.roots.push(background.id);
   return {
-    schemaVersion: 13,
+    schemaVersion: 14,
     nextPanelNumber: 1,
     id: newId(),
     name: '未命名项目',

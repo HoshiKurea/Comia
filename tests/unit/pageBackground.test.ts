@@ -29,7 +29,7 @@ it('defaults to a real editable bottom white background and produces canonical s
 it.each([1, 2, 3] as const)('migrates version %i colors and transparent pages without mutating input or content IDs', version => {
   const p = createProject(), b = background(p), page = p.pages[b.pageId]; delete p.layers[b.id]; page.roots = []; p.schemaVersion = version; delete p.nextPanelNumber; page.background = '#193B5C00'; if (version < 3) delete p.libraryAssetIds;
   const text = createLayer('text', page.id); p.layers[text.id] = text; page.roots.push(text.id); const original = structuredClone(p), result = migrateProject(p);
-  expect(result.ok).toBe(true); if (!result.ok) return; expect(background(result.value).fill).toBe('#193B5C00'); expect(result.value.layers[text.id]).toEqual(text); expect(result.value.pages[page.id].roots[1]).toBe(text.id); expect(p).toEqual(original); expect(result.value.schemaVersion).toBe(13);
+  expect(result.ok).toBe(true); if (!result.ok) return; expect(background(result.value).fill).toBe('#193B5C00'); expect(result.value.layers[text.id]).toEqual(text); expect(result.value.pages[page.id].roots[1]).toBe(text.id); expect(p).toEqual(original); expect(result.value.schemaVersion).toBe(14);
 });
 it('rejects duplicate, moved, nested and nonidentity backgrounds without accepting a second color source', () => {
   const p = getProject(), b = background(p), page = p.pages[b.pageId], other = createPageBackground(page.id); p.layers[other.id] = other; page.roots.push(other.id); expect(validateProject(p).ok).toBe(false);

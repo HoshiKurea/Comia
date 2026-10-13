@@ -11,7 +11,7 @@ export interface BubbleBodyOptions { handDrawn?: HandDrawnStyle | null; contour?
 export interface BubbleGeometry { outline: ShapePath; tailLine: ShapePath | null; textBox: Rect }
 
 export function bubbleBodyPath(shape: BubbleShape, w: number, h: number, style: BubbleStyle, options: BubbleBodyOptions = {}): ShapePath {
-  if (!options.handDrawn && !options.contour && !options.edgeStyle?.wobble && ['rect', 'roundRect', 'circle', 'cloud', 'spiky'].includes(shape)) return legacyBodyPath(shape as LegacyBubbleShape, w, h, style);
+  if (!options.handDrawn && !options.contour && !options.edgeStyle?.wobble && ['rect', 'roundRect', 'circle', 'ellipse', 'cloud', 'spiky'].includes(shape)) return legacyBodyPath((shape==='ellipse'?'circle':shape) as LegacyBubbleShape, w, h, style);
   const result = mangaBodyPath({ shape, width: w, height: h, style, ...options });
   if (!result.ok) throw Error(result.problems.map(p => p.message).join('；'));
   return result.value;
@@ -21,7 +21,7 @@ function safeBox(shape: BubbleShape, w: number, h: number, radius: number): Rect
   const padding = 12;
   const centerX = w / 2, centerY = h / 2;
   let halfW: number, halfH: number;
-  if (shape === 'circle') {
+  if (shape === 'circle' || shape === 'ellipse') {
     halfW = w / (2 * Math.SQRT2) - padding;
     halfH = h / (2 * Math.SQRT2) - padding;
   } else if (shape === 'cloud' || shape === 'spiky') {

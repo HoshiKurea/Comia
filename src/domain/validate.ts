@@ -54,6 +54,8 @@ import { mangaLayerCounts, isBoundTail } from './mangaCounts';
 import { MANGA } from './limits';
 import { buildTailAppearance } from '../bubbles/tailGeometry';
 import { prepareDialogue } from '../bubbles/dialogueGeometry';
+import { parseComicSpec, parseFlash, flashRayCount } from '../comicDrawing/model';
+import { parseInkStroke } from '../freehand/model';
 import { parseDrawingSource } from '../freehand/model';
 
 const MAX_JSON_DEPTH = 64;
@@ -363,7 +365,7 @@ function parseLayer(id: string, raw: Record<string, unknown>, pageId: Id, proble
         problems.push(problem('bubble/size', `气泡 ${id} 尺寸非法`, `layers.${id}`));
         return null;
       }
-      const shapes = ['rect', 'roundRect', 'circle', 'cloud', 'spiky', ...(version >= 6 ? ['handOval', 'handPolygon', 'wave'] : []), ...(version >= 10 ? ['freehand'] : [])];
+      const shapes = ['rect', 'roundRect', 'circle', 'cloud', 'spiky', ...(version >= 14 ? ['ellipse'] : []), ...(version >= 6 ? ['handOval', 'handPolygon', 'wave'] : []), ...(version >= 10 ? ['freehand'] : [])];
       if (!shapes.includes(raw.shape as string)) {
         problems.push(problem('bubble/shape', `气泡 ${id} shape "${String(raw.shape)}" 非法`, `layers.${id}`));
         return null;
@@ -434,10 +436,15 @@ function parseLayer(id: string, raw: Record<string, unknown>, pageId: Id, proble
         const edge = parseBubbleEdge(raw.edgeStyle, `layers.${id}.edgeStyle`); if (!edge.ok) { problems.push(...edge.problems); return null; } layer.edgeStyle = edge.value;
         for (const key of ['innerStroke','outerStroke'] as const) { const band = parseStrokeBand(style[key], `layers.${id}.style.${key}`); if (!band.ok) { problems.push(...band.problems); return null; } layer.style[key] = band.value; }
       }
+      if (raw.flash !== undefined || raw.penOutline !== undefined) {
+        if (version < 14) { problems.push(problem('comic-drawing/version','效果线／笔压需要格式14')); return null; }
+        if (raw.flash !== undefined) { const f=parseFlash(raw.flash); if(!f.ok){problems.push(...f.problems);return null;}layer.flash=f.value;if(flashRayCount(layer.width,layer.height,f.value)>2048){problems.push(problem('flash/budget','效果线超过2048条，请增加间距；未降低密度'));return null;} }
+        if (raw.penOutline !== undefined) { const s=parseInkStroke(raw.penOutline); if(!s.ok||layer.shape!=='freehand'||s.value.tool!=='pen'){problems.push(problem('bubble/pen-outline','笔压轮廓必须属于手绘气泡'));return null;}layer.penOutline=s.value; }
+      }
       if (raw.freehandSource !== undefined || layer.shape === 'freehand') {
         if (version < 10 || layer.shape !== 'freehand' || layer.contour || layer.handDrawn) { problems.push(problem('drawing/version', '自由绘画气泡需要格式10和独立绘画源', `layers.${id}`)); return null; }
         const source = parseDrawingSource(raw.freehandSource, 'bubble'); if (!source.ok) { problems.push(...source.problems); return null; }
-        if (version < 11 && source.value.version === 2) { problems.push(problem('drawing/version', '气泡细节需要格式11', `layers.${id}`)); return null; } layer.freehandSource = source.value;
+        if (version < 11 && source.value.version === 2) { problems.push(problem('drawing/version', '气泡细节需要格式11', `layers.${id}`)); return null; } layer.freehandSource = source.value;if(layer.penOutline&&(layer.penOutline.points.length!==source.value.baseRing.length+1||layer.penOutline.points.some((p,i)=>Math.hypot(p.x-source.value.baseRing[i%source.value.baseRing.length].x,p.y-source.value.baseRing[i%source.value.baseRing.length].y)>1e-6))){problems.push(problem('bubble/pen-outline','笔压记录与气泡轮廓不一致'));return null;}
       }
       const geometry = buildBubble(layer.shape, layer.width, layer.height, layer.style, layer.tail ?? null, layer);
       if (!geometry.ok) { problems.push(...geometry.problems.map((entry) => ({ ...entry, path: `layers.${id}` }))); return null; }
@@ -485,6 +492,7 @@ function parseLayer(id: string, raw: Record<string, unknown>, pageId: Id, proble
       return { layer, raw };
     }
     case 'decoration': {
+      if (version < 14 && isRecord(raw.spec) && ['paint','background-fill'].includes(String(raw.spec.kind))) { problems.push(problem('comic-drawing/version','绘画图层需要格式14')); return null; }
       const spec = parseDecorationSpec(raw.spec, `layers.${id}.spec`, problems);
       if (!spec) return null;
       if (version < 7 && spec.kind === 'speed-brush') { problems.push(problem('brush/version', '速度线笔刷需要格式7', `layers.${id}.spec`)); return null; }
@@ -564,6 +572,10 @@ function parseDecorationSpec(v: unknown, path: string, problems: Problem[]): Dec
   }
   const inRange = (x: number, min: number, max: number) => x >= min && x <= max;
   switch (v.kind) {
+    case 'paint':
+    case 'background-fill': {
+      const parsed = parseComicSpec(v); if (!parsed.ok) { problems.push(...parsed.problems); return null; } return parsed.value;
+    }
     case 'shape': {
       const style=v.style;
       if(!finNum(v.width)||!finNum(v.height)||!inRange(v.width,1,16384)||!inRange(v.height,1,16384)||!['convex','simple'].includes(String(v.geometryMode))||!validPointArray(v.geometry,256)||!isRecord(style)||!validRGBA(style.fill)||!validRGBA(style.borderColor)||!finNum(style.borderWidth)||!inRange(style.borderWidth,0,256)||!finNum(style.borderRadius)||!inRange(style.borderRadius,0,4096)) {problems.push(problem('shape/fields','矢量形状参数无效',path));return null;}
@@ -711,8 +723,8 @@ export function validateProject(input: unknown): Result<Project> {
   }
 
   // 2. 顶层结构
-  if (input.schemaVersion !== 1 && input.schemaVersion !== 2 && input.schemaVersion !== 3 && input.schemaVersion !== 4 && input.schemaVersion !== 5 && input.schemaVersion !== 6 && input.schemaVersion !== 7 && input.schemaVersion !== 8 && input.schemaVersion !== 9 && input.schemaVersion !== 10 && input.schemaVersion !== 11 && input.schemaVersion !== 12 && input.schemaVersion !== 13) {
-    return fail(problem('project/version', `schemaVersion 必须为 1～13，收到 ${String(input.schemaVersion)}`));
+  if (input.schemaVersion !== 1 && input.schemaVersion !== 2 && input.schemaVersion !== 3 && input.schemaVersion !== 4 && input.schemaVersion !== 5 && input.schemaVersion !== 6 && input.schemaVersion !== 7 && input.schemaVersion !== 8 && input.schemaVersion !== 9 && input.schemaVersion !== 10 && input.schemaVersion !== 11 && input.schemaVersion !== 12 && input.schemaVersion !== 13 && input.schemaVersion !== 14) {
+    return fail(problem('project/version', `schemaVersion 必须为 1～14，收到 ${String(input.schemaVersion)}`));
   }
   if (input.schemaVersion >= 5 ? !Number.isSafeInteger(input.nextPanelNumber) || (input.nextPanelNumber as number) < 1 : input.nextPanelNumber !== undefined) return fail(problem('project/number-counter', '格式5/6需要有效的分镜计数器，旧格式不应包含新计数器'));
   if (!isUuid(input.id)) {
@@ -805,6 +817,7 @@ export function validateProject(input: unknown): Result<Project> {
   const templateNames = new Set<string>();
   if (input.schemaVersion >= 8 && Object.keys(input.templates).length > PRESET_LIMITS.count) return fail(problem('preset/limit', '自定义预设最多256个'));
   for (const [id, raw] of Object.entries(input.templates)) {
+    if(input.schemaVersion<14&&isRecord(raw)&&isRecord(raw.recipe)&&isRecord(raw.recipe.nodes)&&Object.values(raw.recipe.nodes).some(n=>isRecord(n)&&(n.flash!==undefined||n.penOutline!==undefined||isRecord(n.spec)&&['paint','background-fill'].includes(String(n.spec.kind))))){problems.push(problem('preset/version','绘画预设需要格式14'));continue;}
     if(input.schemaVersion<12&&isRecord(raw)&&isRecord(raw.recipe)&&isRecord(raw.recipe.nodes)&&Object.values(raw.recipe.nodes).some(n=>isRecord(n)&&(n.presentation!==undefined||isRecord(n.spec)&&n.spec.kind==='shape'))){problems.push(problem('preset/version','外观／矢量形状预设需要格式12',`templates.${id}.recipe`));continue;}
     if(input.schemaVersion<9&&isRecord(raw)&&isRecord(raw.recipe)&&raw.recipe.kind==='bubble-brush'){problems.push(problem('preset/version','气泡笔刷预设需要格式9',`templates.${id}.recipe`));continue;}
     if(input.schemaVersion<10&&isRecord(raw)&&isRecord(raw.recipe)&&isRecord(raw.recipe.nodes)&&Object.values(raw.recipe.nodes).some(n=>isRecord(n)&&(n.shape==='freehand'||n.freehandSource!==undefined))){problems.push(problem('preset/version','自由绘画组件预设需要格式10',`templates.${id}.recipe`));continue;}

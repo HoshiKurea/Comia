@@ -1,3 +1,4 @@
+import {FlashInspector,ComicLayerInspector} from '../comicDrawing/ComicLayerInspector';
 import {ReferenceTransform,ReferenceAppearance,ReferenceEffects} from '../appearance/ReferenceControls';
 import {ReferenceGeometry} from '../appearance/ReferenceGeometry';
 import {geometryPanel} from '../appearance/geometry';
@@ -130,8 +131,8 @@ function setBubbleTail(id: Id, kind: 'triangle' | 'line' | null): void {
 }
 
 function DecorationProperties({layer}:{layer:Extract<Layer,{type:'decoration'}>}) {
-  const spec=layer.spec;if(spec.kind==='shape')return null;
-  return <><label className="color-field">颜色<input aria-label="装饰颜色" type="color" value={spec.color.slice(0,7)} onChange={e=>notice(changeLayer(layer.id,'修改装饰颜色',l=>{if(l.type==='decoration'&&l.spec.kind!=='shape')l.spec.color=e.target.value+'FF';}))}/></label>{spec.kind==='sfx'?<><SfxContentInput id={layer.id} content={spec.content}/><Numeric id={layer.id} field="fontSize" label="字号" value={spec.fontSize}/><Numeric id={layer.id} field="outlineWidth" label="描边" value={spec.outlineWidth}/></>:spec.kind==='speed-brush'?<p className="hint">独立速度线笔触；笔刷参数用于下一笔。</p>:<><Numeric id={layer.id} field="count" label="线数" value={spec.count}/><Numeric id={layer.id} field="strokeWidth" label="线宽" value={spec.strokeWidth}/>{spec.kind==='speed'?<Numeric id={layer.id} field="angleDeg" label="角度" value={spec.angleDeg}/>:<Numeric id={layer.id} field="innerRatio" label="留白比例" value={spec.innerRatio}/>}</>}</>;
+  const spec=layer.spec;if(spec.kind==='shape'||spec.kind==='paint'||spec.kind==='background-fill')return null;
+  return <><label className="color-field">颜色<input aria-label="装饰颜色" type="color" value={spec.color.slice(0,7)} onChange={e=>notice(changeLayer(layer.id,'修改装饰颜色',l=>{if(l.type==='decoration'&&l.spec.kind!=='shape'&&l.spec.kind!=='paint')l.spec.color=e.target.value+'FF';}))}/></label>{spec.kind==='sfx'?<><SfxContentInput id={layer.id} content={spec.content}/><Numeric id={layer.id} field="fontSize" label="字号" value={spec.fontSize}/><Numeric id={layer.id} field="outlineWidth" label="描边" value={spec.outlineWidth}/></>:spec.kind==='speed-brush'?<p className="hint">独立速度线笔触；笔刷参数用于下一笔。</p>:<><Numeric id={layer.id} field="count" label="线数" value={spec.count}/><Numeric id={layer.id} field="strokeWidth" label="线宽" value={spec.strokeWidth}/>{spec.kind==='speed'?<Numeric id={layer.id} field="angleDeg" label="角度" value={spec.angleDeg}/>:<Numeric id={layer.id} field="innerRatio" label="留白比例" value={spec.innerRatio}/>}</>}</>;
 }
 
 function QuickActions({ layer, disabled }: { layer: Layer; disabled: boolean }) {
@@ -177,8 +178,9 @@ export function InspectorPanel({ layer }: { layer: Layer | undefined }) {
         <div className="button-stack"><button onClick={() => notice(openPresetDialog())}>存为组件</button>{layer.children.some(id => { const c = source.layers[id]; return c?.type === 'image' && !!c.crop; }) && <button onClick={() => notice(beginCropEdit(layer!.id))}>编辑裁剪</button>}</div>
         <CutInspector id={layer.id} leaf={layer.role === 'leaf'}/>
       </details>}
-      {layer.type === 'bubble' && <><BubbleShapeInspector bubble={layer}/><fieldset className="inspector-edit" disabled={mangaEditing}>
-        <label className="field bubble-select"><span>形状</span><select value={layer.shape} onChange={e => setBubbleShape(layer!.id, e.target.value as BubbleShape)}><option value="rect">方框</option><option value="roundRect">圆角</option><option value="circle">圆形</option><option value="cloud">云朵</option><option value="spiky">尖刺</option>{layer.shape === 'freehand' && <option value="freehand">手绘轮廓</option>}</select></label>
+      {layer.type==='decoration'&&<ComicLayerInspector layer={layer}/>}
+      {layer.type === 'bubble' && <><FlashInspector bubble={layer}/><BubbleShapeInspector bubble={layer}/><fieldset className="inspector-edit" disabled={mangaEditing}>
+        <label className="field bubble-select"><span>形状</span><select value={layer.shape} onChange={e => setBubbleShape(layer!.id, e.target.value as BubbleShape)}><option value="rect">方框</option><option value="roundRect">圆角</option><option value="circle">圆形</option><option value="ellipse">椭圆</option><option value="cloud">云朵</option><option value="spiky">尖刺</option>{layer.shape === 'freehand' && <option value="freehand">手绘轮廓</option>}</select></label>
         <div className="button-stack"><button onClick={() => setBubbleTail(layer!.id, null)}>无尾</button><button onClick={() => setBubbleTail(layer!.id, 'triangle')}>三角尾</button><button onClick={() => setBubbleTail(layer!.id, 'line')}>线尾</button></div><p className="hint">双击气泡编辑对白</p>
       </fieldset></>}
       {layer.type === 'bubbleTail' && <TailInspector tail={layer}/>}

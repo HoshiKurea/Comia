@@ -3,7 +3,7 @@ import {COMMAND_BY_ID,type CommandId} from '../commands/catalog';
 import {buildShortcutIndex,signature} from '../commands/shortcutBinding';
 import type {ShortcutOverrides} from '../commands/types';
 
-const introducedDefaults=['tool-select','tool-geometry','dialogue-connector','dialogue-fused','dialogue-overlap','tool-marquee','tool-lasso','tool-panel-cut','tool-image-crop','tool-image-mask','tool-bubble-brush']as const;
+const introducedDefaults=['tool-select','tool-geometry','dialogue-connector','dialogue-fused','dialogue-overlap','tool-marquee','tool-lasso','tool-panel-cut','tool-image-crop','tool-image-mask','tool-bubble-brush','tool-flash-bubble','tool-paint-pen','tool-paint-eraser']as const;
 export interface DefaultShortcutConflict {commandId:CommandId;occupiedBy:CommandId}
 /** Preserve explicit bindings, including [], before enabling missing new defaults. */
 export function compatibleShortcutDefaults(value:unknown):Result<{overrides:ShortcutOverrides;conflicts:DefaultShortcutConflict[]}>{

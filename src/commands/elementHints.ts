@@ -16,7 +16,7 @@ function typeHints(type:Layer['type'],o:ShortcutOverrides,note?:string,dialogue=
   if(type==='panel')return [command('tool-panel-cut',o,note),command('tool-geometry',o,note),command('tool-select',o),{label:'直接编辑一个顶点',binding:'Ctrl＋拖动顶点',note},{label:'节点横纵/邻点吸附',binding:'直接拖动节点',note},{label:'节点临时自由移动',binding:'Alt＋拖动节点',note},{label:'精调当前节点',binding:'Ctrl＋方向键',note},{label:'节点加速微调',binding:'Ctrl＋Shift＋方向键',note},{label:'切换节点',binding:'Alt＋← / →',note},{label:'选中框内素材',binding:'Alt＋单击',note},{label:'素材多选',binding:'Alt＋Shift＋单击',note}];
   if(type==='image')return [command('tool-image-crop',o,note),command('tool-image-mask',o,note),command('bind-images',o,note),command('unbind-images',o,note),{label:'拖动后关联到分镜',binding:'Ctrl＋松开',note}];
   if(type==='group')return [command('ungroup',o,note),...(dialogue?[command('dissolve-dialogue',o,note)]:[])];
-  if(type==='bubble')return [command('tool-bubble-brush',o,note),{label:'编辑对白',binding:'双击主体',note},{label:'完成文字',binding:'Ctrl＋Enter',note},...(['dialogue-connector','dialogue-fused','dialogue-overlap']as const).map(id=>command(id,o,'选中2～16个同级气泡后'))];
+  if(type==='bubble')return [command('tool-flash-bubble',o,note),command('tool-bubble-brush',o,note),{label:'编辑对白',binding:'双击主体',note},{label:'完成文字',binding:'Ctrl＋Enter',note},...(['dialogue-connector','dialogue-fused','dialogue-overlap']as const).map(id=>command(id,o,'选中2～16个同级气泡后'))];
   if(type==='text')return [{label:'编辑文字',binding:'双击',note},{label:'完成文字',binding:'Ctrl＋Enter',note}];
   return [];
 }
@@ -39,6 +39,7 @@ export function getElementHints(target:HintTarget,o:ShortcutOverrides):ElementHi
   const note=sessionStore.getState().selection.includes(l.id)?undefined:'先选中此对象',locked=effectiveLayerFlags(p,l.id).locked;
   const rows=objectHints(o,locked?'请先解锁':note);
   if(l.type!=='image'&&l.type!=='pageBackground')rows.push(command('save-component-preset',o,note));
+  if(l.type==='decoration'&&l.spec.kind==='paint')rows.push(command('tool-paint-pen',o,note),command('tool-paint-eraser',o,note));
   rows.push(...typeHints(l.type,o,note,l.type==='group'&&!!l.dialogue));
   return rows;
 }

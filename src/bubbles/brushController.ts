@@ -1,3 +1,5 @@
+import {correctPen} from '../comicDrawing/geometry';
+import {DEFAULT_PEN} from '../comicDrawing/model';
 import { createStore } from 'zustand/vanilla';
 import { fail, ok, problem, type BubbleBrushOptions, type BubbleLayer, type Id, type InkSample, type InkStroke, type Layer, type Mat, type Point, type Project, type Rect, type Result, type Viewport } from '../domain/types';
 import { createLayer } from '../domain/factories';
@@ -27,7 +29,7 @@ interface BubbleBrushDraft {
   base: Project; epoch: number; stateId: Id; pageId: Id; parentId: Id | null; pointerId: number | null;
   viewport: Viewport; rect: Rect; inverse: Mat; localToScreen: Mat; raw: InkSample[];
   options: BubbleBrushOptions; ink: BrushInkOptions; strokeId: Id; seed: number; sceneBase: Project; preview: Project;
-  layerId: Id; mode: HandBubbleMode; stage: 'drawing' | 'review'; error: string; valid: boolean;
+  layerId: Id; mode: HandBubbleMode; pressureEnabled:boolean; stage: 'drawing' | 'review'; error: string; valid: boolean;
 }
 export const bubbleBrushStore = createStore<{ options: BubbleBrushOptions; ink: BrushInkOptions; mode: HandBubbleMode; targetId: Id | null; active: BubbleBrushDraft | null }>(() => ({ options: structuredClone(DEFAULT_BUBBLE_BRUSH), ink: { width: 12, color: '#202020FF', opacity: 1 }, mode: 'contour', targetId: null, active: null }));
 export const currentBubbleBrush = () => bubbleBrushStore.getState().active;
@@ -51,7 +53,7 @@ export function setBubbleInkOptions(patch: Partial<BrushInkOptions>): Result<voi
   bubbleBrushStore.setState({ ink: { ...ink, color: ink.color.toUpperCase() } }); return ok(undefined);
 }
 export function setBubbleBrushOptions(options: BubbleBrushOptions): Result<void> { const r = parseBubbleBrushOptions(options); if (!r.ok) return r; bubbleBrushStore.setState({ options: structuredClone(r.value) }); return ok(undefined); }
-export function beginBubbleBrush(client: Point, pointerId: number, rect: Rect, viewport: Viewport, pressure = .5): Result<void> {
+export function beginBubbleBrush(client: Point, pointerId: number, rect: Rect, viewport: Viewport, pressure = .5, pen = false): Result<void> {
   if (!Number.isSafeInteger(pointerId) || pointerId < 0 || ![client.x, client.y, rect.x, rect.y, rect.width, rect.height, viewport.zoom, viewport.pan.x, viewport.pan.y, pressure].every(Number.isFinite) || rect.width <= 0 || rect.height <= 0 || viewport.zoom <= 0) return fail(problem('bubble-brush/input', '笔迹坐标、视口和指针必须有效'));
   if (currentBubbleBrush()) return fail(problem('bubble-brush/active', '请结束当前笔迹'));
   const finish = finishActiveTextEdit(); if (!finish.ok) return finish; cancelActiveGesture();
@@ -70,7 +72,7 @@ export function beginBubbleBrush(client: Point, pointerId: number, rect: Rect, v
     parentId = b.parentId; layerId = b.id; world = multiply(worldMatrix(sceneBase, b.id), scaling(b.width / b.freehandSource.width, b.height / b.freehandSource.height));
   }
   const inv = inverse(world); if (!inv.ok) return inv;
-  const a: BubbleBrushDraft = { base: doc.project, epoch: doc.epoch, stateId: doc.history.stateId, pageId: page.id, parentId, pointerId, viewport: structuredClone(viewport), rect: { ...rect }, inverse: inv.value, localToScreen: multiply(scaling(viewport.zoom, viewport.zoom), world), raw: [{ ...apply(inv.value, p), pressure: Math.max(0, Math.min(1, pressure)), dt: 0 }], options: structuredClone(config.options), ink: { ...config.ink }, strokeId: newId(), seed: crypto.getRandomValues(new Uint32Array(1))[0], sceneBase, preview: sceneBase, layerId, mode: config.mode, stage: 'drawing', error: '', valid: false };
+  const a: BubbleBrushDraft = { base: doc.project, epoch: doc.epoch, stateId: doc.history.stateId, pageId: page.id, parentId, pointerId, viewport: structuredClone(viewport), rect: { ...rect }, inverse: inv.value, localToScreen: multiply(scaling(viewport.zoom, viewport.zoom), world), raw: [{ ...apply(inv.value, p), pressure: Math.max(0, Math.min(1, pressure)), dt: 0 }], options: structuredClone(config.options), ink: { ...config.ink }, strokeId: newId(), seed: crypto.getRandomValues(new Uint32Array(1))[0], sceneBase, preview: sceneBase, layerId, mode: config.mode, pressureEnabled:pen&&!!config.options.pen?.pressure, stage: 'drawing', error: '', valid: false };
   bubbleBrushStore.setState({ active: a }); runtimeStore.setState({ gestureActive: true });
   cleanups = [retainResources(doc.project), registerGestureCanceller(cancelBubbleBrush), documentStore.subscribe(n => { if (currentBubbleBrush() && (n.epoch !== doc.epoch || n.history.stateId !== doc.history.stateId)) cancelBubbleBrush(); }), sessionStore.subscribe(n => { if (currentBubbleBrush() && (n.activePageId !== page.id || n.toolMode !== 'bubble-brush' || n.scopeId !== s.scopeId || n.spacePan || config.mode !== 'contour' && n.selection[0] !== layerId || JSON.stringify(n.viewportByPage[page.id]) !== JSON.stringify(s.viewportByPage[page.id]))) cancelBubbleBrush(); })];
   return ok(undefined);
@@ -93,17 +95,19 @@ export function rebuildBubbleBrush(): Result<void> {
   const a = currentBubbleBrush(); if (!a) return fail(problem('bubble-brush/inactive', '没有活动气泡'));
   let b: BubbleLayer;
   if (a.mode === 'contour') {
-    const capture = captureAutoClosedBubble(a.raw, a.localToScreen); if (!capture.ok) return capture;
+    const corrected=correctPen(a.raw,a.localToScreen,a.options.pen??{...DEFAULT_PEN,stabilization:a.options.smoothing,postCorrection:a.options.simplifyScreenPx});
+    const capture = captureAutoClosedBubble(corrected, a.localToScreen); if (!capture.ok) return capture;
     const q = capture.value, o = a.options; b = createLayer('bubble', a.pageId, '手绘气泡') as BubbleLayer;
     b.id = a.layerId; b.parentId = a.parentId; b.shape = 'freehand'; b.width = q.width; b.height = q.height; b.matrix = translation(q.origin.x, q.origin.y); b.freehandSource = q.source; b.handDrawn = null; b.contour = null;
+    if(a.pressureEnabled){const samples=q.source.baseRing.map(p=>{const x=p.x*q.width/q.source.width+q.origin.x,y=p.y*q.height/q.source.height+q.origin.y;let nearest=corrected[0],distance=Infinity;for(const c of corrected){const d=Math.hypot(c.x-x,c.y-y);if(d<distance){distance=d;nearest=c;}}return{...p,pressure:nearest.pressure,dt:0};});b.penOutline={id:a.strokeId,tool:'pen',pressureMode:'pen',points:[...samples,{...samples[0]}],width:Math.max(1,o.borderWidth),opacity:1,color:o.borderColor};}
     b.style = { borderWidth: o.borderWidth, borderColor: o.borderColor, fill: o.fill, radius: 0, innerStroke: { ...o.innerStroke }, outerStroke: { ...o.outerStroke } }; b.edgeStyle = { recipe: 'normal-offset-v1', wobble: o.handDrawn?.wobble ?? 0, seed: a.seed };
   } else {
     const old = a.sceneBase.layers[a.layerId]; if (old?.type !== 'bubble' || !old.freehandSource) return fail(problem('bubble-brush/target', '气泡已失效'));
     const source = old.freehandSource.version === 2 ? old.freehandSource : { ...old.freehandSource, version: 2 as const, ink: [] };
-    const stroke: InkStroke = { id: a.strokeId, tool: a.mode === 'erase-ink' ? 'eraser' : 'pen', points: a.raw, ...a.ink, pressureMode: 'fixed' };
+    const stroke: InkStroke = { id: a.strokeId, tool: a.mode === 'erase-ink' ? 'eraser' : 'pen', points: a.raw, ...a.ink, pressureMode: a.pressureEnabled?'pen':'fixed' };
     const next = a.mode === 'ink' || a.mode === 'erase-ink' ? { ...source, ink: [...source.ink, stroke] } : { ...source, edits: [...source.edits, { id: a.strokeId, mode: a.mode === 'add-shape' ? 'add' as const : 'subtract' as const, stroke }] };
     const valid = parseDrawingSource(next, 'bubble'); if (!valid.ok) return invalidPreview(a, valid);
-    b = { ...old, freehandSource: valid.value };
+    b = { ...old, freehandSource: valid.value };if(a.mode.endsWith('shape'))delete b.penOutline;
     if (a.mode.endsWith('shape')) { const region = freehandRegion(valid.value); if (!region.ok) return invalidPreview(a, region); const topology = validBubbleRegion(region.value); if (!topology.ok) return invalidPreview(a, topology); }
   }
   const preview = { ...a.sceneBase, layers: { ...a.sceneBase.layers, [b.id]: b } };

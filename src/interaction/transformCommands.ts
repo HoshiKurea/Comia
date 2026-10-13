@@ -13,7 +13,7 @@ import { finishActiveTextEdit } from '../text/editLifecycle';
 
 export function transformDimensions(id: Id, project: Project = getProject()): { width: number; height: number } | null {
   const layer = project.layers[id], box = layer?.type==='text'?layer.box:localLayerBounds(project, id); if (!box) return null;
-  const scale = layer?.type === 'image' || layer?.type === 'group' || layer?.type==='decoration'&&layer.spec.kind==='shape' ? decompose(layer.matrix) : { sx: 1, sy: 1 };
+  const scale = layer?.type === 'image' || layer?.type === 'group' || layer?.type==='decoration'&&(layer.spec.kind==='shape'||layer.spec.kind==='paint'||layer.spec.kind==='background-fill') ? decompose(layer.matrix) : { sx: 1, sy: 1 };
   return { width: box.width * scale.sx, height: box.height * scale.sy };
 }
 export function setDimensions(id: Id, width?: number, height?: number): Result<void> {

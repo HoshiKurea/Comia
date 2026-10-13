@@ -131,7 +131,7 @@ export interface ImageMask {
 }
 
 export type LegacyBubbleShape = 'rect' | 'roundRect' | 'circle' | 'cloud' | 'spiky';
-export type BubbleShape = LegacyBubbleShape | 'handOval' | 'handPolygon' | 'wave' | 'freehand';
+export type BubbleShape = LegacyBubbleShape | 'ellipse' | 'handOval' | 'handPolygon' | 'wave' | 'freehand';
 
 export interface InkSample extends Point { pressure: number; dt: number }
 export interface InkStroke {
@@ -216,6 +216,9 @@ export interface BubbleLayer extends LayerBase {
   height: number;
   shape: BubbleShape;
   freehandSource?: FreehandBubbleSource;
+  /** Format14: editable radial flash and recorded outline pressure. */
+  flash?: import('../comicDrawing/types').FlashOptions;
+  penOutline?: InkStroke;
   /** Only decoded formats1..5; format6 rejects this property, even null. */
   tail?: BubbleTail | null;
   handDrawn?: HandDrawnStyle | null;
@@ -271,6 +274,8 @@ export interface SpeedBrushSpec {
   ribbons: Point[][];
 }
 export type DecorationSpec =
+  | import('../comicDrawing/types').PaintLayerSpec
+  | import('../comicDrawing/types').BackgroundFillSpec
   | SpeedBrushSpec
   | { kind: 'shape'; width: number; height: number; geometry: Point[]; geometryMode: 'convex' | 'simple'; style: PanelStyle }
   | {
@@ -374,13 +379,14 @@ export interface BrushPresetRecipe { kind: 'speed-brush'; options: SpeedBrushOpt
 export interface BubbleBrushOptions {
   borderWidth:number;borderColor:RGBA;fill:RGBA;smoothing:number;simplifyScreenPx:number;closeScreenPx:number;
   handDrawn:HandDrawnStyle|null;innerStroke:BubbleStrokeBand;outerStroke:BubbleStrokeBand;
+  pen?: import('../comicDrawing/types').BubblePenSettings;
 }
 export interface BubbleBrushRecipe {kind:'bubble-brush';options:BubbleBrushOptions}
 export interface ComponentPreset { id: Id; name: string; recipe: ScenePresetRecipe | BrushPresetRecipe | BubbleBrushRecipe }
 export type UserTemplate = LegacyUserTemplate | ComponentPreset;
 
 export interface Project {
-  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13;
+  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13 | 14;
   nextPanelNumber?: number; // Format5/6 compatibility cache: max(live leaf numbers)+1, refreshed by transactions.
   id: Id;
   name: string;

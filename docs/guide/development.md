@@ -227,3 +227,15 @@ npx playwright test --config tests/config/playwright.hand-bubble-performance.con
 ```
 
 性能配置使用单worker，避免与其他测试并行测量。测试只测JS输入／绘制，不代表GPU帧呈现；输出存本机忽略目录。效果输出以真实PNG/PDF生成和解析为准，不用CSS截图代替。
+
+
+### 漫画绘画专项核验
+
+```powershell
+npx playwright test --config tests/config/playwright.comic-drawing.config.ts
+npx playwright test --config tests/config/playwright.comic-drawing-performance.config.ts
+npm run build
+npx playwright test --config tests/config/playwright.comic-drawing-offline.config.ts
+```
+
+生产离线测试在4258端口运行，开发绘画测试使用5238、性能测试使用5239；不操作5173中的用户作品。构建和开发浏览器验收按先后顺序运行，性能测试单独执行。

@@ -31,6 +31,6 @@ export function localLayerBounds(project: Project, id: Id): Rect | null {
   const layer = project.layers[id]; if (!layer) return null;
   if (layer.type === 'panel') return polyBounds(layer.geometry);
   if(layer.type==='decoration'&&layer.spec.kind==='shape')return polyBounds(layer.spec.geometry);
-  if (layer.type === 'bubble') return layer.shape==='freehand'?boundsAt(project,id,IDENTITY):{ x: 0, y: 0, width: layer.width, height: layer.height };
+  if (layer.type === 'bubble') return layer.shape==='freehand'||layer.flash?boundsAt(project,id,IDENTITY):{ x: 0, y: 0, width: layer.width, height: layer.height };
   return boundsAt(project, id, IDENTITY);
 }
