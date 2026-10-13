@@ -64,6 +64,10 @@ npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
 | [docs/STATUS.md](../STATUS.md) | 当前状态与实际检查范围 |
 | [tests/config](../../tests/config/README.md) | 专项浏览器、离线与性能入口 |
 
+## 漫画原稿专项
+
+开发行为验证：`npx playwright test --config=tests/config/playwright.manuscript.config.ts`（5237、Edge DPR1/2）。生产离线：先构建，再执行 `npx playwright test --config=tests/config/playwright.manuscript-offline.config.ts`（4257）。覆盖物理尺寸、多页、继承、设置撤销、独立辅助层显隐、保存重开及真实PNG/PDF。性能数据与原始产物位于本地忽略的output/manuscript，不随仓库推送。
+
 ## 基础检查
 
 ```powershell

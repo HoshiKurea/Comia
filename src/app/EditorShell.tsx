@@ -272,7 +272,7 @@ export function EditorShell() {
       const changed = await switchWorkspace(id); if (!changed.ok) { notice(changed); return; }
       const edited = finishProjectText(); if (!edited.ok) { notice(edited); return; }
       if (documentDirty()) { const d = documentStore.getState(); setPendingClose({ id, epoch: d.epoch, stateId: d.history.stateId }); setDownloadPrepared(false); }
-      else notice(await closeActiveWorkspace(createProject()));
+      else notice(await closeActiveWorkspace(createProject({ comic: true })));
     } finally { setBusy(false); }
   };
   const completeClose = async (discard: boolean) => {
@@ -282,7 +282,7 @@ export function EditorShell() {
     const recovery = getRecoveryBinding(), projectId = d.project.id;
     setBusy(true);
     try {
-      const result = await closeActiveWorkspace(createProject()); notice(result);
+      const result = await closeActiveWorkspace(createProject({ comic: true })); notice(result);
       if (result.ok) { setPendingClose(null); setDownloadPrepared(false); if (discard) notice(await discardWorkspaceRecovery(projectId, recovery)); }
     } finally { setBusy(false); }
   };
@@ -295,7 +295,7 @@ export function EditorShell() {
       if (!result.ok) return;
       if (d.epoch !== origin.epoch || d.history.stateId !== result.value.stateId) { setPendingClose(null); pushNotice('error', '保存期间作品又有修改，请重新发起关闭'); return; }
       if (!result.value.verified) { setDownloadPrepared(true); return; }
-      const closed = await closeActiveWorkspace(createProject()); notice(closed); if (closed.ok) setPendingClose(null);
+      const closed = await closeActiveWorkspace(createProject({ comic: true })); notice(closed); if (closed.ok) setPendingClose(null);
     } finally { setBusy(false); }
   };
   const exportCurrent = async (format: 'png' | 'pdf') => {
@@ -387,7 +387,7 @@ export function EditorShell() {
     ] },
     { id: 'layer', label: '图层', entries: [action('group', '编组', () => notice(groupLayers(sessionStore.getState().selection)), fileReason ?? groupReason), action('ungroup', '解组', () => notice(ungroup(sessionStore.getState().selection[0])), fileReason ?? ungroupReason), ...(['connector','fused','overlap'] as const).map((mode,i)=>action('dialogue-'+mode,['建立连接对白','建立融合对白','建立叠加对白'][i],()=>notice(createDialogue(sessionStore.getState().selection,mode)),fileReason ?? (dialogueEligibility(project,selection).ok ? null : '请选择2～16个连续、可见且未锁定的气泡主体'))), action('dissolve-dialogue','解散连续对白',()=>notice(dissolveDialogue(sessionStore.getState().selection[0])),fileReason ?? (selection.length===1 && project.layers[selection[0]]?.type==='group' && (project.layers[selection[0]] as import('../domain/types').GroupLayer).dialogue ? null : '请选择连续对白组')), separator('layer-association'), action('bind-images', '关联素材到分镜', () => notice(bindSelectedImages()), fileReason ?? bindingDisabledReason()), action('unbind-images', '解除素材分镜关联', () => notice(unbindPanelImages(sessionStore.getState().selection)), fileReason ?? unbindingDisabledReason()), separator('layer-order'), ...(['top', 'up', 'down', 'bottom'] as const).map((direction, i) => action(`order-${direction}`, ['置于顶层', '上移一层', '下移一层', '置于底层'][i], () => notice(moveLayers(sessionStore.getState().selection, direction)), sortReason))] },
     { id: 'page', label: '页面', entries: [action('add-page', '新建漫画页', () => notice(addPage(livePageId())), fileReason), action('rename-page', '重命名当前页…', () => rename(livePageId()), fileReason), action('delete-page', '删除当前页…', () => deletePage(livePageId()), fileReason ?? (project.pageOrder.length <= 1 ? '至少保留一页' : null)), separator('page-settings'), action('page-settings', '页面设置…', () => showLeft('pages', true), fileReason)] },
-    { id: 'view', label: '视图', entries: [action('fit-page', '适应页面', fitCurrentPage), { kind: 'check', id: 'panel-numbers', label: '显示分镜序号', checked: () => sessionStore.getState().showPanelNumbers, disabledReason: null, run: () => notice(updatePreference('showPanelNumbers',!sessionStore.getState().showPanelNumbers)) }, { kind: 'check', id: 'snap16', label: '16 倍数尺寸吸附', checked: snap16, disabledReason: null, run: () => setSnap16(!sessionStore.getState().snap16) },
+    { id: 'view', label: '视图', entries: [action('fit-page', '适应页面', fitCurrentPage), { kind: 'check', id: 'panel-numbers', label: '显示分镜序号', checked: () => sessionStore.getState().showPanelNumbers, disabledReason: null, run: () => notice(updatePreference('showPanelNumbers',!sessionStore.getState().showPanelNumbers)) }, { kind: 'check', id: 'manuscript-guides', label: '显示漫画定位线', checked: () => sessionStore.getState().showManuscriptGuides, disabledReason: null, run: () => notice(updatePreference('showManuscriptGuides', !sessionStore.getState().showManuscriptGuides)) }, { kind: 'check', id: 'snap16', label: '16 倍数尺寸吸附', checked: snap16, disabledReason: null, run: () => setSnap16(!sessionStore.getState().snap16) },
       { kind: 'submenu', id: 'theme', label: '界面主题', disabledReason: null, entries: (['system', 'light', 'dark'] as ThemePreference[]).map((value, i) => ({ kind: 'radio', id: `theme-${value}`, label: ['跟随系统', '浅色', '深色'][i], checked: theme === value, disabledReason: null, run: () => setTheme(value) })) }, separator('view-sidebars'),
       action('show-library', '组件库', () => showLeft('library')), action('show-assets', '素材库', () => showLeft('assets')), action('show-pages', '项目页面', () => showLeft('pages'))] },
     {id:'window',label:'窗口',entries:[...PANEL_IDS.map(id=>({kind:'check' as const,id:'panel-'+id,label:PANEL_LABELS[id],checked:()=>!panelLayoutStore.getState().layout.hidden.includes(id),disabledReason:null,run:()=>{if(panelLayoutStore.getState().layout.hidden.includes(id))revealPanel(id);else changePanelLayout(l=>closePanel(l,id));}})),separator('workspace-reset'),action('reset-workspace','恢复默认工作区',()=>changePanelLayout(resetLayout))]},

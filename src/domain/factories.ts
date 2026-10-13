@@ -18,6 +18,7 @@ import type {
 } from './types';
 import { newId } from './id';
 import { completeBubbleStyle } from './bubbleStyleDefaults';
+import { DEFAULT_COMIC_DPI, defaultManuscript } from '../pages/manuscript';
 
 export const DEFAULT_DPI = 300;
 export const DEFAULT_BACKGROUND: RGBA = '#FFFFFFFF';
@@ -47,12 +48,13 @@ export function createPage(opts?: {
   };
 }
 
-export function createProject(options?: { background?: boolean }): Project {
-  const page = createPage();
+export function createProject(options?: { background?: boolean; comic?: boolean }): Project {
+  const page = createPage(options?.comic ? { dpi: DEFAULT_COMIC_DPI } : undefined);
+  if (options?.comic) page.manuscript = defaultManuscript();
   const background = createPageBackground(page.id);
   if (options?.background !== false) page.roots.push(background.id);
   return {
-    schemaVersion: 12,
+    schemaVersion: 13,
     nextPanelNumber: 1,
     id: newId(),
     name: '未命名项目',
@@ -63,7 +65,7 @@ export function createProject(options?: { background?: boolean }): Project {
     libraryAssetIds: [],
     assetLibrary: { folders: {}, assetFolder: {} },
     templates: {},
-    settings: { readingDirection: 'rtl', defaultDpi: DEFAULT_DPI },
+    settings: { readingDirection: 'rtl', defaultDpi: page.dpi },
   };
 }
 

@@ -1,4 +1,5 @@
 import { createStore } from 'zustand/vanilla';
+import { defaultManuscript } from '../pages/manuscript';
 import { newId } from '../domain/id';
 import { resetCounters, syncCounters } from '../domain/factories';
 import { validateProject } from '../domain/validate';
@@ -35,7 +36,7 @@ export function documentHasWork(doc: DocumentStoreState): boolean {
   const page = p.pages[p.pageOrder[0]];
   return doc.history.stateId !== p.id || doc.history.past.length > 0 || p.pageOrder.length > 1 ||
     Object.values(p.layers).some(l => l.type !== 'pageBackground' || l.fill !== '#FFFFFFFF' || l.frame !== null || l.watermark !== null || !l.visible || l.locked || l.name !== '页面背景' || l.colorLabel !== null) ||
-    Object.keys(p.assets).length > 0 || Object.keys(p.templates).length > 0 || p.name !== '未命名项目' || page?.width !== 2480 || page?.height !== 3508 || page?.dpi !== 300;
+    Object.keys(p.assets).length > 0 || Object.keys(p.templates).length > 0 || p.name !== '未命名项目' || !((page?.width === 2480 && page.height === 3508 && page.dpi === 300 && !page.manuscript) || (page?.width === 4961 && page.height === 7016 && page.dpi === 600 && JSON.stringify(page.manuscript) === JSON.stringify(defaultManuscript())));
 }
 export function documentDirty(doc = getDocument()): boolean { return documentHasWork(doc) && doc.savedStateId !== doc.history.stateId; }
 export function hasUnsavedWorkspaces(): boolean { return documentDirty() || [...parked.values()].some(p => documentDirty(p.document)); }

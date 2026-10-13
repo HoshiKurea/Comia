@@ -4,7 +4,7 @@ import { menuCommand, setMenuTheme, waitForProjectIO } from './menuHelpers';
 async function state(page: Page) { return page.evaluate(async () => { const { getDocument } = await import('/src/' + 'state/documentStore.ts'), { sessionStore } = await import('/src/' + 'state/sessionStore.ts'), { workspaceStore } = await import('/src/' + 'projects/workspaces.ts'); return { doc: getDocument(), session: sessionStore.getState(), workspaces: workspaceStore.getState() }; }); }
 async function newProject(page: Page, name: string, transparent = false) {
   await (await menuCommand(page, '新建项目…')).click(); const dialog = page.getByRole('dialog', { name: '新建项目', exact: true });
-  await dialog.getByLabel('新项目名称', { exact: true }).fill(name); await dialog.getByLabel('新项目纸张', { exact: true }).selectOption('custom');
+  await dialog.getByLabel('新项目名称', { exact: true }).fill(name); await dialog.getByLabel('新项目漫画原稿设置').uncheck(); await dialog.getByLabel('新项目单位').selectOption('px'); await dialog.getByLabel('新项目页数').fill('1'); await dialog.getByLabel('新项目纸张', { exact: true }).selectOption('custom');
   await dialog.getByLabel('新项目宽度', { exact: true }).fill('640'); await dialog.getByLabel('新项目高度', { exact: true }).fill('480'); await dialog.getByLabel('新项目 DPI', { exact: true }).fill('72');
   if (transparent) await dialog.getByLabel('新项目背景', { exact: true }).selectOption('transparent');
   await dialog.getByRole('button', { name: '创建项目', exact: true }).click(); await expect(dialog).toHaveCount(0); await expect(page.getByRole('tablist', { name: '漫画项目', exact: true }).getByRole('tab', { name, exact: false })).toHaveAttribute('aria-selected', 'true');
@@ -23,7 +23,7 @@ test('six top categories expose real commands and new projects retain separate p
 test('new project validation preserves final custom axes, orientation and editable transparent background', async ({ page }) => {
   await page.goto('/'); const original = await state(page); await (await menuCommand(page, '新建项目…')).click(); const d = page.getByRole('dialog', { name: '新建项目', exact: true });
   await d.getByLabel('新项目名称', { exact: true }).fill(' '); await expect(d.getByRole('button', { name: '创建项目', exact: true })).toBeDisabled(); await expect(d.getByRole('alert')).toContainText('名称');
-  await d.getByLabel('新项目名称', { exact: true }).fill('透明漫画'); await d.getByLabel('新项目纸张', { exact: true }).selectOption('custom');
+  await d.getByLabel('新项目名称', { exact: true }).fill('透明漫画'); await d.getByLabel('新项目漫画原稿设置').uncheck(); await d.getByLabel('新项目单位').selectOption('px'); await d.getByLabel('新项目页数').fill('1'); await d.getByLabel('新项目纸张', { exact: true }).selectOption('custom');
   await d.getByLabel('新项目宽度', { exact: true }).fill('113'); await d.getByLabel('新项目高度', { exact: true }).fill('79'); await d.getByLabel('新项目方向', { exact: true }).selectOption('landscape'); await d.getByLabel('新项目 DPI', { exact: true }).fill('72'); await d.getByLabel('新项目背景', { exact: true }).selectOption('transparent');
   await d.getByRole('button', { name: '创建项目', exact: true }).click(); await expect(d).toHaveCount(0); const s = await state(page), p = s.doc.project.pages[s.doc.project.pageOrder[0]];
   expect(p).toMatchObject({ width: 113, height: 79, dpi: 72 }); expect(Object.values(s.doc.project.layers)[0]).toMatchObject({ type: 'pageBackground', fill: '#FFFFFF00' }); expect(s.doc.savedStateId).toBeNull(); expect(s.workspaces.tabs).toHaveLength(original.workspaces.tabs.length + 1);

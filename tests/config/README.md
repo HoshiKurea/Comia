@@ -22,3 +22,7 @@ npx playwright test --config=tests/config/playwright.freehand-offline.config.ts
 配置路径相对本目录解析：`testDir`指向相邻的e2e/offline/performance目录，`webServer.cwd`返回项目根目录，报告与产物留在根目录的`output/`或`test-results/`中并被Git忽略。
 
 这些文件是可重复运行的测试入口，不是测试生成报告；测试断言仍在[tests](../)中。完整运行说明见[开发文档](../../docs/guide/development.md)。
+
+漫画原稿与定位线：`npx playwright test --config=tests/config/playwright.manuscript.config.ts`，独立端口5237，Edge DPR1/2。覆盖新建8页、继承、坐标/撤销、无主绘显隐、保存重开、真实无定位线PNG/PDF和绘制成本。
+
+生产原稿专项：先 `npm run build`，再 `npx playwright test --config=tests/config/playwright.manuscript-offline.config.ts`（4257、Edge DPR1/2），包含原稿及旧项目菜单离线回归。

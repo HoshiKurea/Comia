@@ -28,6 +28,7 @@ export interface SessionStoreState {
   theme: 'light' | 'dark' | 'system';
   snap16: boolean;
   showPanelNumbers: boolean;
+  showManuscriptGuides: boolean;
   spacePan: boolean;
   geometryConstraint: 'freeConvex' | 'parallelogram' | 'rectangle';
   toolMode: ToolMode;
@@ -53,6 +54,7 @@ export const sessionStore = createStore<SessionStoreState>(() => ({
   theme: 'system',
   snap16: false,
   showPanelNumbers: true,
+  showManuscriptGuides: true,
   spacePan: false,
   geometryConstraint: 'freeConvex',
   toolMode: 'select',

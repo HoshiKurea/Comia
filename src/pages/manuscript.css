@@ -1,0 +1,37 @@
+.text-dialog.manuscript-dialog { width: min(960px, calc(100vw - 40px)); max-height: calc(100dvh - 40px); display: flex; flex-direction: column; }
+.manuscript-dialog .new-project-form { display: flex; flex-direction: column; gap: 16px; overflow: auto; min-height: 0; }
+.manuscript-dialog .new-project-form>p { margin: 0; }
+.manuscript-layout { display: grid; grid-template-columns: minmax(0, 1fr) 260px; gap: 28px; }
+.manuscript-fields { display: grid; grid-template-columns: 1fr 1fr; align-items: start; gap: 16px; }
+.manuscript-fields fieldset { padding: 16px; margin: 0; min-width: 0; border: 1px solid var(--border); border-radius: 5px; display: grid; gap: 12px; }
+.manuscript-fields legend { font-weight: 600; padding: 0 4px; }
+.manuscript-fields .manuscript-inner { border: 0; padding: 0; }
+.manuscript-fields label { display: grid; gap: 6px; font-size: 12px; }
+.manuscript-dialog .new-project-form .manuscript-fields label { display: grid; gap: 6px; margin: 0; justify-content: stretch; }
+.manuscript-dialog .manuscript-fields select, .manuscript-dialog .manuscript-project-options input, .manuscript-dialog .manuscript-project-options select { width: 100%; }
+.manuscript-dialog .new-project-form .manuscript-fields .manuscript-check { display: flex; }
+.manuscript-dialog .manuscript-project-options label { display: grid; gap: 6px; margin: 0; }
+.manuscript-dialog .dialog-actions { position: sticky; bottom: 0; background: var(--surface); margin-top: 0; z-index: 1; }
+.manuscript-fields small, .manuscript-preview p { font-size: 11px; line-height: 1.6; color: var(--muted); }
+.manuscript-pair { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
+.manuscript-number { display: flex; align-items: center; border: 1px solid var(--border); border-radius: 4px; background: var(--surface); }
+.manuscript-dialog .manuscript-number input { border: 0; width: 100%; min-width: 0; background: transparent; padding: 7px; }
+.manuscript-number>span { padding: 0 7px; color: var(--muted); font-size: 11px; }
+.manuscript-fields .manuscript-check { display: flex; align-items: center; flex-direction: row; gap: 8px; }
+.manuscript-dialog input[type=checkbox] { width: 14px; min-height: 14px; height: 14px; margin: 0; }
+.manuscript-fields h4 { margin: 4px 0 0; font-size: 12px; }
+.manuscript-disabled { opacity: .55; }
+.manuscript-preview { align-self: start; position: sticky; top: 0; display: grid; gap: 10px; text-align: center; border: 1px solid var(--border); padding: 16px; background: var(--workspace); border-radius: 6px; }
+.manuscript-preview svg { width: 100%; max-height: 280px; box-shadow: 0 2px 10px #0002; }
+.manuscript-preview small { font-size: 11px; }
+.manuscript-dialog .manuscript-preview p { margin: 0; padding: 0; width: auto; text-align: left; }
+.manuscript-dialog .manuscript-preview .manuscript-budget { padding: 8px; }
+.manuscript-preview-empty { padding: 70px 0; color: var(--muted); }
+.manuscript-project-options { display: grid; grid-template-columns: 100px 1fr 1fr 100px; gap: 16px; align-items: end; }
+.manuscript-dialog .manuscript-project-options input[type=color] { width: 100%; min-width: 36px; min-height: 34px; height: 34px; padding: 3px; }
+.manuscript-budget { font-size: 12px; color: var(--muted); padding: 9px 12px; border: 1px solid var(--border); border-radius: 4px; }
+.manuscript-current { display: grid; gap: 5px; font-size: 11px; color: var(--muted); }
+.page-guide-overlay { position: absolute; pointer-events: none; width: 100%; height: 100%; inset: 0; }
+.page-thumbnail { position: relative; }
+@media(max-width: 850px) { .manuscript-layout { grid-template-columns: 1fr 180px; gap: 14px; } .manuscript-fields { grid-template-columns: 1fr; } }
+@media(max-width: 580px) { .manuscript-layout { grid-template-columns: 1fr; } .manuscript-preview { position: static; } .manuscript-preview svg { max-height: 200px; } .manuscript-project-options { grid-template-columns: 1fr 1fr; } }

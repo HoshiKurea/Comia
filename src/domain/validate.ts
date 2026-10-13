@@ -25,6 +25,7 @@ import type {
 } from './types';
 import { fail, ok, problem } from './types';
 import { parsePresentation, parseAppearancePreset } from '../appearance/model';
+import { parseManuscript } from '../pages/manuscript';
 import { validateAssetLibrary, libraryNameKey } from '../assets/folderModel';
 import { PRESET_LIMITS, validateComponentPreset } from '../library/presetModel';
 import { SPEED_BRUSH, validBrushOptions } from '../library/speedBrushGeometry';
@@ -710,8 +711,8 @@ export function validateProject(input: unknown): Result<Project> {
   }
 
   // 2. 顶层结构
-  if (input.schemaVersion !== 1 && input.schemaVersion !== 2 && input.schemaVersion !== 3 && input.schemaVersion !== 4 && input.schemaVersion !== 5 && input.schemaVersion !== 6 && input.schemaVersion !== 7 && input.schemaVersion !== 8 && input.schemaVersion !== 9 && input.schemaVersion !== 10 && input.schemaVersion !== 11 && input.schemaVersion !== 12) {
-    return fail(problem('project/version', `schemaVersion 必须为 1～12，收到 ${String(input.schemaVersion)}`));
+  if (input.schemaVersion !== 1 && input.schemaVersion !== 2 && input.schemaVersion !== 3 && input.schemaVersion !== 4 && input.schemaVersion !== 5 && input.schemaVersion !== 6 && input.schemaVersion !== 7 && input.schemaVersion !== 8 && input.schemaVersion !== 9 && input.schemaVersion !== 10 && input.schemaVersion !== 11 && input.schemaVersion !== 12 && input.schemaVersion !== 13) {
+    return fail(problem('project/version', `schemaVersion 必须为 1～13，收到 ${String(input.schemaVersion)}`));
   }
   if (input.schemaVersion >= 5 ? !Number.isSafeInteger(input.nextPanelNumber) || (input.nextPanelNumber as number) < 1 : input.nextPanelNumber !== undefined) return fail(problem('project/number-counter', '格式5/6需要有效的分镜计数器，旧格式不应包含新计数器'));
   if (!isUuid(input.id)) {
@@ -865,6 +866,11 @@ export function validateProject(input: unknown): Result<Project> {
       ...(input.schemaVersion < 4 ? { background: raw.background as RGBA } : {}),
       roots: raw.roots as Id[],
     };
+    if (raw.manuscript !== undefined) {
+      if (input.schemaVersion < 13) { problems.push(problem('page/manuscript-version', '漫画定位线需要项目格式13', `pages.${id}.manuscript`)); continue; }
+      const settings = parseManuscript(raw.manuscript, pages[id]);
+      if (!settings.ok) problems.push(...settings.problems); else pages[id].manuscript = settings.value;
+    }
   }
   for (const pid of pageOrder) {
     if (!pages[pid]) {

@@ -7,6 +7,7 @@ import { getProject } from '../state/documentStore';
 import { sessionStore, setSelection, pushNotice } from '../state/sessionStore';
 import { finishActiveTextEdit } from '../text/editLifecycle';
 import { cancelActiveGesture } from '../interaction/activeGesture';
+import { parseManuscript, type ManuscriptSettings } from './manuscript';
 
 export type PaperPreset = 'A4' | 'B4-ISO' | 'custom';
 export interface PageSizeInput {
@@ -51,7 +52,13 @@ export function addPage(afterId: Id | null, input?: PageSizeInput): Result<Id> {
   let n = 1;
   while (used.has(`第${n}页`)) n += 1;
   const page = createPage({ name: `第${n}页`, ...size.value });
+  if (current.manuscript) {
+    const inherited = parseManuscript(current.manuscript, page); if (!inherited.ok) return inherited;
+    page.manuscript = inherited.value;
+  }
   const background = createPageBackground(page.id); page.roots.push(background.id);
+  const paper = current.roots.map(id => project.layers[id]).find(layer => layer.type === 'pageBackground');
+  if (paper?.type === 'pageBackground') background.fill = paper.fill;
   const result = execute({
     label: '新建页面', context: { pageId: contextId, selection: sessionStore.getState().selection }, afterSelection: [], afterPageId: page.id,
     mutate(draft) {
@@ -134,5 +141,17 @@ export function setReadingDirection(direction: 'ltr' | 'rtl'): Result<void> {
   const project = getProject();
   const pageId = sessionStore.getState().activePageId || project.pageOrder[0];
   const result = execute({ label: '修改阅读方向', context: { pageId, selection: sessionStore.getState().selection }, mutate(draft) { draft.settings.readingDirection = direction; } });
+  return result.ok ? ok(undefined) : result;
+}
+
+export function configurePage(id: Id, size: { width: number; height: number; dpi: number }, manuscript: ManuscriptSettings | undefined): Result<void> {
+  if (!getProject().pages[id]) return fail(problem('page/missing', '页面已不存在'));
+  const dimensions = resolvePageSize({ preset: 'custom', orientation: 'portrait', widthPx: size.width, heightPx: size.height, dpi: size.dpi });
+  if (!dimensions.ok) return dimensions;
+  const guides = manuscript === undefined ? null : parseManuscript(manuscript, dimensions.value); if (guides && !guides.ok) return guides;
+  const result = execute({ label: '修改漫画原稿设置', context: { pageId: id, selection: sessionStore.getState().selection }, mutate(draft) {
+    Object.assign(draft.pages[id], dimensions.value);
+    if (guides?.ok) draft.pages[id].manuscript = guides.value; else delete draft.pages[id].manuscript;
+  } });
   return result.ok ? ok(undefined) : result;
 }

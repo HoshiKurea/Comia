@@ -325,6 +325,7 @@ export interface Page {
   width: number;
   height: number;
   dpi: number;
+  manuscript?: import('../pages/manuscript').ManuscriptSettings;
   background?: RGBA; // legacy formats only; schema4 paints the real bottom layer
   roots: Id[]; // 后元素在上，唯一根层顺序
 }
@@ -379,7 +380,7 @@ export interface ComponentPreset { id: Id; name: string; recipe: ScenePresetReci
 export type UserTemplate = LegacyUserTemplate | ComponentPreset;
 
 export interface Project {
-  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+  schemaVersion: 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12 | 13;
   nextPanelNumber?: number; // Format5/6 compatibility cache: max(live leaf numbers)+1, refreshed by transactions.
   id: Id;
   name: string;

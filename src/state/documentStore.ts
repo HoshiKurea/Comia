@@ -17,7 +17,7 @@ export interface DocumentStoreState {
 }
 
 export const documentStore = createStore<DocumentStoreState>(() => {
-  const project = createProject();
+  const project = createProject({ comic: true });
   return {
     project,
     history: { past: [], future: [], stateId: project.id },

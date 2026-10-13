@@ -33,6 +33,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Layer, Shape, Stage } from 'react-konva';
 import { selectionPolygon as screenPolygon, selectionOutlines, drawSelectionOutlines } from '../render/selectionOverlay';
 import { getPanelNumberLabels } from '../panels/numberOverlay';
+import { drawManuscriptGuides } from '../pages/guideOverlay';
 import type Konva from 'konva';
 import { useStore } from 'zustand';
 import type { Id, Layer as ComicLayer, Point, Project, Rect, Viewport } from '../domain/types';
@@ -323,7 +324,7 @@ export function CanvasView({ onEditText,areaDisabled=false }: { onEditText: (id:
   }, []);
   useEffect(() => { if (!contourEditing) { disposeGestureRuns(contourRuns.current); contourRuns.current = null; paintedContour.current = null; } }, [contourEditing]);
   useEffect(() => { let frame: number | null = null; const off = sessionStore.subscribe((s, old) => {
-    if (s.showPanelNumbers !== old.showPanelNumbers && frame === null) frame = requestAnimationFrame(() => { frame = null; overlayLayer.current?.batchDraw(); });
+    if ((s.showPanelNumbers !== old.showPanelNumbers || s.showManuscriptGuides !== old.showManuscriptGuides) && frame === null) frame = requestAnimationFrame(() => { frame = null; overlayLayer.current?.batchDraw(); });
   }); return () => { off(); if (frame !== null) cancelAnimationFrame(frame); }; }, []);
 
   useEffect(() => { let frame: number | null = null; const off = associationStore.subscribe(() => { if (frame === null) frame = requestAnimationFrame(() => { frame = null; overlayLayer.current?.batchDraw(); }); }); return () => { off(); if (frame !== null) cancelAnimationFrame(frame); }; }, []);
@@ -1022,6 +1023,7 @@ export function CanvasView({ onEditText,areaDisabled=false }: { onEditText: (id:
       <Layer ref={overlayLayer} listening={false}>
         <Shape sceneFunc={(ctx) => {
           addOverlayDraws(1);
+          if (page && sessionStore.getState().showManuscriptGuides) drawManuscriptGuides(ctx._context, page, (panRef.current ?? wheelRef.current ?? pinchRef.current)?.viewport ?? vp);
           if(areaRef.current)drawAreaSelection(ctx._context,areaRef.current);
           if (sessionStore.getState().showPanelNumbers) {
             const source = currentDrawing()?.kind === 'edit' ? currentDrawing()!.preview : currentPanelStyle()?.preview ?? currentNodeEdit()?.preview ?? currentKeyboardMove()?.preview ?? previewRef.current ?? project;

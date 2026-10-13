@@ -9,8 +9,11 @@ import type { CommandId } from '../commands/catalog';
 const initial=createDefaultPreferences();
 export const preferencesStore=createStore<{value:AppPreferences;shortcutIndex:ReadonlyMap<string,CommandId>}>(()=>({value:initial,shortcutIndex:new Map()}));
 let installed=false,knownStorageGeneration:string|null=null;
-function publish(value:AppPreferences){const index=buildShortcutIndex(value.shortcuts);if(!index.ok)return;
- preferencesStore.setState({value,shortcutIndex:index.value});sessionStore.setState({theme:value.theme,snap16:value.snap16,showPanelNumbers:value.showPanelNumbers});
+function publish(value:AppPreferences){const previous=preferencesStore.getState().value;
+ // Display-only preferences must not invalidate the editor's command props and main paint Layer.
+ if(JSON.stringify(value.shortcuts)===JSON.stringify(previous.shortcuts))value={...value,shortcuts:previous.shortcuts};
+ const index=buildShortcutIndex(value.shortcuts);if(!index.ok)return;
+ preferencesStore.setState({value,shortcutIndex:index.value});sessionStore.setState({theme:value.theme,snap16:value.snap16,showPanelNumbers:value.showPanelNumbers,showManuscriptGuides:value.showManuscriptGuides});
  if(typeof document!=='undefined')document.documentElement.dataset.theme=value.theme==='system'?(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'):value.theme;
 }
 export function installPreferences():void {if(installed)return;installed=true;const value=loadPreferences();try{knownStorageGeneration=readStoredPreferences()?.generation??null;}catch{knownStorageGeneration=null;}publish(value);

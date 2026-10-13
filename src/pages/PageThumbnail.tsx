@@ -4,11 +4,14 @@ import type { Id } from '../domain/types';
 import { onBusEvent } from '../history/commandBus';
 import { documentStore, getDocument } from '../state/documentStore';
 import { runtimeStore } from '../state/runtimeStore';
+import { sessionStore } from '../state/sessionStore';
+import { manuscriptSegments } from './manuscript';
 import { hasCurrentThumbnail, invalidatePage, scheduleThumbnail, subscribeThumbnailState, type ThumbnailState } from './thumbnails';
 
 export function PageThumbnail({ pageId, index }: { pageId: Id; index: number }) {
   const [state, setState] = useState<ThumbnailState>({ status: 'idle', url: null, message: '' });
   const page = useStore(documentStore, (doc) => doc.project.pages[pageId]);
+  const showGuides = useStore(sessionStore, s => s.showManuscriptGuides);
   // Reserve the same bordered box through loading/error/retry so native page drop targets stay stable.
   const height = page ? Math.max(54, Math.min(320, 158 * page.height / page.width + 2)) : 54;
   useEffect(() => {
@@ -31,7 +34,11 @@ export function PageThumbnail({ pageId, index }: { pageId: Id; index: number }) 
     if (!hasCurrentThumbnail(pageId)) schedule();
     return () => { unsubThumbnail(); unsubBus(); unsubImages(); if (!getDocument().project.pages[pageId]) invalidatePage(pageId); };
   }, [pageId]);
-  return <span className="page-thumbnail" style={{ height }} aria-busy={state.status === 'pending'} title={state.message || undefined}>{state.url ? <img src={state.url} alt={`第 ${index + 1} 页缩略图`} draggable={false} /> : <span>{state.status === 'error' ? '生成失败' : String(index + 1).padStart(2, '0')}</span>}</span>;
+  return <span className="page-thumbnail" style={{ height }} aria-busy={state.status === 'pending'} title={state.message || undefined}>{state.url ? <img src={state.url} alt={`第 ${index + 1} 页缩略图`} draggable={false} /> : <span>{state.status === 'error' ? '生成失败' : String(index + 1).padStart(2, '0')}</span>}
+    {page?.manuscript && showGuides && <svg className="page-guide-overlay" aria-hidden="true" viewBox={`0 0 ${page.width} ${page.height}`}>
+      {manuscriptSegments(page).map((s, i) => <line key={i} x1={s.a.x} y1={s.a.y} x2={s.b.x} y2={s.b.y} vectorEffect="non-scaling-stroke" stroke="#8a81e5" strokeWidth=".65" strokeDasharray={s.kind === 'safe' ? '3 2' : undefined} />)}
+    </svg>}
+  </span>;
 }
 export function PageThumbnailRetry({ pageId }: { pageId: Id }) {
   const [state, setState] = useState<ThumbnailState>({ status: 'idle', url: null, message: '' });
